@@ -102,15 +102,6 @@ Generate an HCL schema from an existing database:
 go run ./cmd/cli generate-schema-from-db <schema name> <database name>
 ```
 
-**Obs:** If you're generating code inside a docker container you need to change generated folder and file permissions to use the code outside the container.
-
-run the following command to fix generated file ownership:
-``` SHELL
-sudo chown $USER:$USER -R .
-```
-
-if you have a group name different from your username change the command accordingly
-
 ---
 
 ### Code generation (scaffold)
@@ -237,3 +228,15 @@ go build -o mcp ./cmd/mcp
 #### Smoke test
 
 A full end-to-end smoke test that drives the server through real tool calls (create a domain + service via MCP) lives at `tools/mcp/demo.sh`.
+
+---
+
+### Agent Skills
+
+`skills/` ships **harness-agnostic** agent skills — documented workflows any AI tool (Claude Code, Cursor, a custom agent) can discover and run, not just one vendor. Discovery is a single machine-readable index, `skills/manifest.json`; each skill is a `SKILL.md` written against an abstract capability vocabulary that each harness maps to its own primitives.
+
+The first skill is `task-init`: a multi-agent orchestrator that fans out one planning sub-agent per task — a dedicated worktree per task and a human review gate before any code is written.
+
+- Format, discovery and capability vocabulary: `skills/README.md`
+- Claude Code adapter (links skills into `.claude/skills/`): `skills/adapters/claude-code/install.sh`
+- Any other tool: `skills/adapters/generic.md`
