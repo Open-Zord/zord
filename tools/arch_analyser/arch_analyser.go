@@ -1,7 +1,10 @@
+// Package arch_analyser implementa as validações de arquitetura executadas
+// como gate no pre-commit (camadas, dependências, nomenclatura, isolamento).
 package arch_analyser
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/importer"
@@ -73,6 +76,9 @@ func ValidateImports(root string) error {
 	return filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
 			return err
+		}
+		if strings.HasSuffix(path, "_test.go") {
+			return nil
 		}
 		fset := token.NewFileSet()
 		f, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
@@ -151,7 +157,7 @@ func ValidateNewServiceParams(root string) error {
 		return nil
 	})
 	if len(errors) > 0 {
-		return fmt.Errorf("Validação de parâmetros de NewService falhou:\n%s", strings.Join(errors, "\n"))
+		return fmt.Errorf("validação de parâmetros de NewService falhou:\n%s", strings.Join(errors, "\n"))
 	}
 	return nil
 }
@@ -171,6 +177,9 @@ func ValidateDbQueriesInRepositories(root string) error {
 
 	_ = filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		if strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
 		// Permitir apenas arquivos dentro de /internal/repositories/
@@ -197,7 +206,7 @@ func ValidateDbQueriesInRepositories(root string) error {
 		return nil
 	})
 	if len(errors) > 0 {
-		return fmt.Errorf("Validação de queries no banco falhou:\n%s", strings.Join(errors, "\n"))
+		return fmt.Errorf("validação de queries no banco falhou:\n%s", strings.Join(errors, "\n"))
 	}
 	return nil
 }
@@ -264,6 +273,9 @@ func ValidateLayerDependencies(root string) error {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
 				return nil
 			}
+			if strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
 			fset := token.NewFileSet()
 			f, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
 			if err != nil {
@@ -292,7 +304,7 @@ func ValidateLayerDependencies(root string) error {
 		})
 	}
 	if len(errors) > 0 {
-		return fmt.Errorf("Validação de dependências entre camadas falhou:\n%s", strings.Join(errors, "\n"))
+		return fmt.Errorf("validação de dependências entre camadas falhou:\n%s", strings.Join(errors, "\n"))
 	}
 	return nil
 }
@@ -304,7 +316,7 @@ func ValidateNoCircularDependencies(root string) error {
 	cmd.Dir = root
 	output, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("Erro ao executar go list: %v", err)
+		return fmt.Errorf("erro ao executar go list: %w", err)
 	}
 
 	type Package struct {
@@ -353,7 +365,132 @@ func ValidateNoCircularDependencies(root string) error {
 		}
 	}
 	if len(cycles) > 0 {
-		return fmt.Errorf("Ciclos de dependência detectados:\n%s", strings.Join(cycles, "\n"))
+		return fmt.Errorf("ciclos de dependência detectados:\n%s", strings.Join(cycles, "\n"))
+	}
+	return nil
+}
+
+// orphanExemptProviders são os providers padrão do esqueleto zord. Vêm com o
+// template e fazem parte do skeleton — não são tratados como órfãos mesmo
+// quando temporariamente sem importador (decisão NAVE-127). Casados por sufixo
+// do import path, sem depender do module path.
+var orphanExemptProviders = []string{
+	"internal/application/providers/pagination",
+	"internal/application/providers/filters",
+}
+
+// isOrphanExemptProvider reporta se o import path é um provider padrão do zord
+// exemptado da regra de órfão.
+func isOrphanExemptProvider(importPath string) bool {
+	for _, suffix := range orphanExemptProviders {
+		if strings.HasSuffix(importPath, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidateNoOrphanPackages garante que nenhum pacote em internal/ exista sem
+// ninguém o importar (in-degree zero no grafo de imports do módulo).
+//
+// Mecanismo: monta o grafo de imports via `go list -json ./...`, computando a
+// união de Imports + TestImports + XTestImports de todos os pacotes do módulo.
+// Um pacote em internal/ que não aparece nessa união é órfão — peso morto que
+// passa pelo enforce de layout (NAVE-126) mas que ninguém liga.
+//
+// Falsos positivos tratados:
+//   - Entrypoints `main` (Name == "main"): ninguém os importa por definição.
+//     Excluídos (e estão fora de internal/ de qualquer forma).
+//   - Uso só-por-teste (mocks/, helpers): contado via TestImports/XTestImports.
+//   - Blank import (`_ "..."`): go list já o inclui em Imports, então o padrão
+//     registry/side-effect não vira falso positivo.
+//   - Providers padrão do esqueleto zord (pagination, filters): vêm com o
+//     template e fazem parte do skeleton — exemptos via orphanExemptProviders
+//     mesmo quando temporariamente não-ligados (decisão NAVE-127).
+//
+// Depende de o módulo compilar — se `go list` falhar (build quebrado), retorna
+// erro com a saída do comando.
+func ValidateNoOrphanPackages(root string) error {
+	modulePath, err := readModulePath(root)
+	if err != nil {
+		return fmt.Errorf("não foi possível ler module path do go.mod: %w", err)
+	}
+
+	cmd := exec.Command("go", "list", "-json", "./...")
+	cmd.Dir = root
+	output, err := cmd.Output()
+	if err != nil {
+		var stderr string
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			stderr = strings.TrimSpace(string(exitErr.Stderr))
+		}
+		if stderr != "" {
+			return fmt.Errorf("erro ao executar go list (módulo precisa compilar): %w\n%s", err, stderr)
+		}
+		return fmt.Errorf("erro ao executar go list (módulo precisa compilar): %w", err)
+	}
+
+	type listPackage struct {
+		ImportPath   string   `json:"ImportPath"`
+		Name         string   `json:"Name"`
+		Imports      []string `json:"Imports"`
+		TestImports  []string `json:"TestImports"`
+		XTestImports []string `json:"XTestImports"`
+	}
+
+	type pkgMeta struct {
+		importPath string
+		name       string
+	}
+
+	var internalPkgs []pkgMeta
+	imported := make(map[string]struct{})
+
+	dec := json.NewDecoder(strings.NewReader(string(output)))
+	for {
+		var pkg listPackage
+		if decErr := dec.Decode(&pkg); decErr != nil {
+			break
+		}
+		// Só contam como importadores os imports que caem dentro do módulo.
+		for _, imp := range pkg.Imports {
+			if strings.HasPrefix(imp, modulePath) {
+				imported[imp] = struct{}{}
+			}
+		}
+		for _, imp := range pkg.TestImports {
+			if strings.HasPrefix(imp, modulePath) {
+				imported[imp] = struct{}{}
+			}
+		}
+		for _, imp := range pkg.XTestImports {
+			if strings.HasPrefix(imp, modulePath) {
+				imported[imp] = struct{}{}
+			}
+		}
+		if strings.Contains(pkg.ImportPath, "/internal/") {
+			internalPkgs = append(internalPkgs, pkgMeta{importPath: pkg.ImportPath, name: pkg.Name})
+		}
+	}
+
+	var orphans []string
+	for _, pkg := range internalPkgs {
+		// Entrypoints main nunca são importados — não são órfãos.
+		if pkg.name == "main" {
+			continue
+		}
+		// Providers padrão do esqueleto zord são exemptos (decisão NAVE-127).
+		if isOrphanExemptProvider(pkg.importPath) {
+			continue
+		}
+		if _, ok := imported[pkg.importPath]; !ok {
+			orphans = append(orphans, pkg.importPath)
+		}
+	}
+
+	if len(orphans) > 0 {
+		return fmt.Errorf("pacotes órfãos em internal/ (ninguém os importa):\n%s", strings.Join(orphans, "\n"))
 	}
 	return nil
 }
@@ -387,7 +524,7 @@ func ValidateContextUsage(root string) error {
 		return nil
 	})
 	if len(errors) > 0 {
-		return fmt.Errorf("Validação de uso de context falhou:\n%s", strings.Join(errors, "\n"))
+		return fmt.Errorf("validação de uso de context falhou:\n%s", strings.Join(errors, "\n"))
 	}
 	return nil
 }
@@ -416,7 +553,7 @@ func ValidateProvidersArePure(root string) error {
 		return nil
 	})
 	if len(errors) > 0 {
-		return fmt.Errorf("Validação de pureza dos providers falhou:\n%s", strings.Join(errors, "\n"))
+		return fmt.Errorf("validação de pureza dos providers falhou:\n%s", strings.Join(errors, "\n"))
 	}
 	return nil
 }
@@ -490,7 +627,7 @@ func ValidateRepositoryInterfacesImplemented(root string) error {
 					if _, ok := typeSpec.Type.(*ast.StructType); ok {
 						// Verifica se struct implementa a interface (nomes iguais)
 						for _, method := range typeSpec.Name.Obj.Decl.(*ast.TypeSpec).Type.(*ast.StructType).Fields.List {
-							if method.Names != nil && method.Names[0].Name == iface {
+							if len(method.Names) > 0 && method.Names[0].Name == iface {
 								found = true
 								return nil
 							}
@@ -505,47 +642,55 @@ func ValidateRepositoryInterfacesImplemented(root string) error {
 		}
 	}
 	if len(errors) > 0 {
-		return fmt.Errorf("Validação de implementação de interfaces de repositório falhou:\n%s", strings.Join(errors, "\n"))
+		return fmt.Errorf("validação de implementação de interfaces de repositório falhou:\n%s", strings.Join(errors, "\n"))
 	}
 	return nil
 }
 
-// ValidateNoGlobalVars garante que não existam variáveis globais mutáveis fora de escopos controlados
+// ValidateNoGlobalVars garante que não existam variáveis globais mutáveis (var
+// em nível de pacote) em internal/, pkg/ e cmd/. Sem exceção por prefixo de
+// nome — `Err*` não é mais isento, já que constant-error (const) é o padrão
+// exigido para sentinelas. const é sempre permitido.
 func ValidateNoGlobalVars(root string) error {
-	internalPath := filepath.Join(root, "internal")
+	scanDirs := []string{
+		filepath.Join(root, "internal"),
+		filepath.Join(root, "pkg"),
+		filepath.Join(root, "cmd"),
+	}
 	var errors []string
-	_ = filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-			return nil
-		}
-		fset := token.NewFileSet()
-		fileAst, err := parser.ParseFile(fset, path, nil, 0)
-		if err != nil {
-			return nil
-		}
-		for _, decl := range fileAst.Decls {
-			gen, ok := decl.(*ast.GenDecl)
-			if !ok || gen.Tok != token.VAR {
-				continue
+	for _, base := range scanDirs {
+		_ = filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
+				return nil
 			}
-			for _, spec := range gen.Specs {
-				vs, ok := spec.(*ast.ValueSpec)
-				if !ok {
+			if strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			fset := token.NewFileSet()
+			fileAst, err := parser.ParseFile(fset, path, nil, 0)
+			if err != nil {
+				return nil
+			}
+			for _, decl := range fileAst.Decls {
+				gen, ok := decl.(*ast.GenDecl)
+				if !ok || gen.Tok != token.VAR {
 					continue
 				}
-				for _, name := range vs.Names {
-					// Ignorar variáveis que começam com Err (padrão Go para erros imutáveis)
-					if strings.HasPrefix(name.Name, "Err") {
+				for _, spec := range gen.Specs {
+					vs, ok := spec.(*ast.ValueSpec)
+					if !ok {
 						continue
 					}
-					errors = append(errors, errorWithPos(fset, name, path, "declaração de variável global mutável: "+name.Name))
+					for _, name := range vs.Names {
+						errors = append(errors, errorWithPos(fset, name, path, "declaração de variável global mutável: "+name.Name))
+					}
 				}
 			}
-		}
-		return nil
-	})
+			return nil
+		})
+	}
 	if len(errors) > 0 {
-		return fmt.Errorf("Validação de variáveis globais mutáveis falhou:\n%s", strings.Join(errors, "\n"))
+		return fmt.Errorf("validação de variáveis globais mutáveis falhou:\n%s", strings.Join(errors, "\n"))
 	}
 	return nil
 }
@@ -589,7 +734,7 @@ func ValidateOrchestrationOnlyInServices(root string) error {
 		return nil
 	})
 	if len(errors) > 0 {
-		return fmt.Errorf("Validação de orquestração falhou:\n%s", strings.Join(errors, "\n"))
+		return fmt.Errorf("validação de orquestração falhou:\n%s", strings.Join(errors, "\n"))
 	}
 	return nil
 }
@@ -605,6 +750,9 @@ func ValidateNamingAndLocation(root string) error {
 	internalPath := filepath.Join(root, "internal")
 	_ = filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		if strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
 		fset := token.NewFileSet()
@@ -663,26 +811,19 @@ func ValidateNamingAndLocation(root string) error {
 		return nil
 	})
 	if len(errors) > 0 {
-		return fmt.Errorf("Validação de nomenclatura/localização falhou:\n%s", strings.Join(errors, "\n"))
+		return fmt.Errorf("validação de nomenclatura/localização falhou:\n%s", strings.Join(errors, "\n"))
 	}
 	return nil
-}
-
-// isPascalCase verifica se o nome está em PascalCase
-func isPascalCase(s string) bool {
-	if len(s) == 0 {
-		return false
-	}
-	return strings.ToUpper(s[:1]) == s[:1] && !strings.Contains(s, "_")
 }
 
 // ValidateExternalPackagesUsage garante que apenas camadas permitidas importem pacotes externos
 func ValidateExternalPackagesUsage(root string) error {
 	// Defina aqui os pacotes externos permitidos por camada
 	allowed := map[string][]string{
-		"repositories": {"github.com/jmoiron/sqlx", "github.com/fatih/structs"},
-		"services":     {"github.com/rs/zerolog"},
-		// Adicione outros conforme necessário
+		"repositories": {"github.com/jmoiron/sqlx", "github.com/fatih/structs", "github.com/go-sql-driver/mysql"},
+		// TODO: remover sqlx de services quando a refatoração do UnitOfWork
+		// abstrair *sqlx.Tx das interfaces de repositório.
+		"services": {"github.com/rs/zerolog", "github.com/jmoiron/sqlx"},
 	}
 	layerPaths := map[string]string{
 		"repositories": filepath.Join(root, "internal/repositories"),
@@ -695,6 +836,9 @@ func ValidateExternalPackagesUsage(root string) error {
 	for layer, path := range layerPaths {
 		filepath.Walk(path, func(fpath string, info os.FileInfo, err error) error {
 			if err != nil || info.IsDir() || !strings.HasSuffix(fpath, ".go") {
+				return nil
+			}
+			if strings.HasSuffix(fpath, "_test.go") {
 				return nil
 			}
 			fset := token.NewFileSet()
@@ -725,7 +869,7 @@ func ValidateExternalPackagesUsage(root string) error {
 		})
 	}
 	if len(errors) > 0 {
-		return fmt.Errorf("Validação de uso de pacotes externos falhou:\n%s", strings.Join(errors, "\n"))
+		return fmt.Errorf("validação de uso de pacotes externos falhou:\n%s", strings.Join(errors, "\n"))
 	}
 	return nil
 }
@@ -763,7 +907,70 @@ func ValidateReflectionUsage(root string) error {
 		return nil
 	})
 	if len(errors) > 0 {
-		return fmt.Errorf("Validação de uso de reflection falhou:\n%s", strings.Join(errors, "\n"))
+		return fmt.Errorf("validação de uso de reflection falhou:\n%s", strings.Join(errors, "\n"))
+	}
+	return nil
+}
+
+// ValidatePkgNoInternalImports garante que pacotes em pkg/ não importem de internal/
+func ValidatePkgNoInternalImports(root string) error {
+	pkgPath := filepath.Join(root, "pkg")
+	var errors []string
+	_ = filepath.Walk(pkgPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		if strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		fset := token.NewFileSet()
+		f, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
+		if err != nil {
+			return nil
+		}
+		for _, imp := range f.Imports {
+			importPath := strings.Trim(imp.Path.Value, "\"")
+			if strings.Contains(importPath, "/internal/") {
+				errors = append(errors, errorWithPos(fset, imp, path, "pkg/ não pode importar de internal/: "+importPath))
+			}
+		}
+		return nil
+	})
+	if len(errors) > 0 {
+		return fmt.Errorf("validação de isolamento pkg/ falhou:\n%s", strings.Join(errors, "\n"))
+	}
+	return nil
+}
+
+// ValidateDomainNaming garante que nomes de domínio seguem snake_case minúsculo
+func ValidateDomainNaming(root string) error {
+	validName := regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+	dirs := []string{
+		filepath.Join(root, "internal", "application", "domain"),
+		filepath.Join(root, "internal", "application", "services"),
+		filepath.Join(root, "internal", "repositories"),
+	}
+	var errors []string
+	for _, base := range dirs {
+		entries, err := os.ReadDir(base)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			if name == "base_repository" || name == "base_service" || name == "providers" || name == "context" {
+				continue
+			}
+			if !validName.MatchString(name) {
+				errors = append(errors, fmt.Sprintf("%s/%s: nome de domínio inválido — use snake_case minúsculo (ex.: user, user_role)", base, name))
+			}
+		}
+	}
+	if len(errors) > 0 {
+		return fmt.Errorf("validação de nomenclatura de domínios falhou:\n%s", strings.Join(errors, "\n"))
 	}
 	return nil
 }
@@ -776,6 +983,9 @@ func ValidateTypeAssertions(root string) error {
 	checkDir := func(basePath string) {
 		_ = filepath.Walk(basePath, func(path string, info os.FileInfo, err error) error {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
+				return nil
+			}
+			if strings.HasSuffix(path, "_test.go") {
 				return nil
 			}
 			content, err := os.ReadFile(path)
@@ -802,7 +1012,136 @@ func ValidateTypeAssertions(root string) error {
 	checkDir(internalPath)
 	checkDir(pkgPath)
 	if len(errors) > 0 {
-		return fmt.Errorf("Validação de type assertions (.()) falhou:\n%s", strings.Join(errors, "\n"))
+		return fmt.Errorf("validação de type assertions (.()) falhou:\n%s", strings.Join(errors, "\n"))
 	}
 	return nil
+}
+
+// ValidateNoHandlerCrossImports garante que um pacote de handler HTTP em
+// cmd/http/handlers/<domain>/<verb>/ não importe outro pacote de handler.
+// Cada verbo deve compor a partir de services/registry; chamar outro handler
+// quebra o isolamento horizontal entre use cases.
+//
+// Subpacotes auxiliares sob cmd/http/handlers/ (sem tipo *Handler) não são
+// considerados handlers e podem ser importados livremente.
+func ValidateNoHandlerCrossImports(root string) error {
+	handlersRoot := filepath.Join(root, "cmd", "http", "handlers")
+	if _, err := os.Stat(handlersRoot); err != nil {
+		return nil
+	}
+
+	modulePath, err := readModulePath(root)
+	if err != nil {
+		return fmt.Errorf("não foi possível ler module path do go.mod: %w", err)
+	}
+	handlerImportPrefix := modulePath + "/cmd/http/handlers/"
+
+	handlerPkgs, err := discoverHandlerPackages(handlersRoot, root, modulePath)
+	if err != nil {
+		return err
+	}
+
+	var errors []string
+	_ = filepath.Walk(handlersRoot, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		if strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		pkgImport := fileToImportPath(path, root, modulePath)
+		if _, isHandlerPkg := handlerPkgs[pkgImport]; !isHandlerPkg {
+			return nil
+		}
+		fset := token.NewFileSet()
+		f, parseErr := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
+		if parseErr != nil {
+			return nil
+		}
+		for _, imp := range f.Imports {
+			importPath := strings.Trim(imp.Path.Value, "\"")
+			if !strings.HasPrefix(importPath, handlerImportPrefix) {
+				continue
+			}
+			if importPath == pkgImport {
+				continue
+			}
+			if _, isHandler := handlerPkgs[importPath]; isHandler {
+				errors = append(errors, errorWithPos(fset, imp, path, "handler importa outro handler: "+importPath))
+			}
+		}
+		return nil
+	})
+	if len(errors) > 0 {
+		return fmt.Errorf("validação de isolamento entre handlers falhou:\n%s", strings.Join(errors, "\n"))
+	}
+	return nil
+}
+
+// readModulePath extrai a primeira diretiva `module` do go.mod na raiz do repo.
+func readModulePath(root string) (string, error) {
+	content, err := os.ReadFile(filepath.Join(root, "go.mod"))
+	if err != nil {
+		return "", err
+	}
+	for _, line := range strings.Split(string(content), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module")), nil
+		}
+	}
+	return "", fmt.Errorf("diretiva module não encontrada em go.mod")
+}
+
+// discoverHandlerPackages mapeia os import paths dos pacotes sob
+// cmd/http/handlers/ que contenham pelo menos uma declaração de tipo cujo
+// nome termine em "Handler" — isto é, pacotes que de fato expõem um handler
+// HTTP. Subpacotes auxiliares (sem tipo *Handler) ficam de fora.
+func discoverHandlerPackages(handlersRoot, root, modulePath string) (map[string]struct{}, error) {
+	pkgs := make(map[string]struct{})
+	err := filepath.Walk(handlersRoot, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		if strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		fset := token.NewFileSet()
+		f, parseErr := parser.ParseFile(fset, path, nil, 0)
+		if parseErr != nil {
+			return nil
+		}
+		for _, decl := range f.Decls {
+			gen, ok := decl.(*ast.GenDecl)
+			if !ok || gen.Tok != token.TYPE {
+				continue
+			}
+			for _, spec := range gen.Specs {
+				typeSpec, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+				if strings.HasSuffix(typeSpec.Name.Name, "Handler") {
+					pkgs[fileToImportPath(path, root, modulePath)] = struct{}{}
+				}
+			}
+		}
+		return nil
+	})
+	return pkgs, err
+}
+
+// fileToImportPath converte o path absoluto de um arquivo Go no import path
+// do pacote que o contém, a partir do module path declarado em go.mod.
+func fileToImportPath(filePath, root, modulePath string) string {
+	dir := filepath.Dir(filePath)
+	rel, err := filepath.Rel(root, dir)
+	if err != nil {
+		return ""
+	}
+	rel = filepath.ToSlash(rel)
+	if rel == "." {
+		return modulePath
+	}
+	return modulePath + "/" + rel
 }
