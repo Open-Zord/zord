@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0",
+  "skills": [
+    {
+      "name": "task-init",
+      "description": "Spawn one planning sub-agent per task and run them in parallel: for each task, create a dedicated worktree and a background sub-agent loaded with the task context that returns an implementation plan (it does not write code). Use when the user says \"start <task>\", \"kick off these tasks\", or passes a list of task identifiers to fan out work.",
+      "path": "task-init/SKILL.md",
+      "version": "1.0.0",
+      "capabilities": ["load_skill", "spawn_subagent", "run_shell", "read_file", "vcs"]
+    }
+  ]
+}

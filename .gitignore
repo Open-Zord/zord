@@ -8,3 +8,6 @@ tmp/*
 temp/
 coverage.out
 server
+
+# stray artifacts
+excalidraw.log
