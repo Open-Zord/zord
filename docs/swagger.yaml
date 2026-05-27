@@ -1,6 +1,8 @@
 definitions:
-  go-skeleton_internal_application_domain_dummy.Dummy:
+  github_com_Open-Zord_zord_internal_application_domain_dummy.Dummy:
     properties:
+      DeletedAt:
+        type: string
       DummyName:
         type: string
       Email:
@@ -8,7 +10,7 @@ definitions:
       ID:
         type: string
     type: object
-  go-skeleton_internal_application_services.Error:
+  github_com_Open-Zord_zord_internal_application_services.Error:
     properties:
       Error:
         type: string
@@ -16,7 +18,7 @@ definitions:
       Status:
         type: integer
     type: object
-  go-skeleton_internal_application_services_dummy_CREATE.Data:
+  github_com_Open-Zord_zord_internal_application_services_dummy_CREATE.Data:
     properties:
       DummyName:
         maxLength: 32
@@ -28,17 +30,17 @@ definitions:
     - DummyName
     - Email
     type: object
-  go-skeleton_internal_application_services_dummy_CREATE.Response:
+  github_com_Open-Zord_zord_internal_application_services_dummy_CREATE.Response:
     properties:
       Data:
-        $ref: '#/definitions/go-skeleton_internal_application_domain_dummy.Dummy'
+        $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_domain_dummy.Dummy'
     type: object
-  go-skeleton_internal_application_services_dummy_DELETE.Response:
+  github_com_Open-Zord_zord_internal_application_services_dummy_DELETE.Response:
     properties:
       Message:
         type: string
     type: object
-  go-skeleton_internal_application_services_dummy_EDIT.Data:
+  github_com_Open-Zord_zord_internal_application_services_dummy_EDIT.Data:
     properties:
       DummyName:
         type: string
@@ -48,25 +50,26 @@ definitions:
     - DummyName
     - Email
     type: object
-  go-skeleton_internal_application_services_dummy_EDIT.Response:
+  github_com_Open-Zord_zord_internal_application_services_dummy_EDIT.Response:
     properties:
       Data:
-        $ref: '#/definitions/go-skeleton_internal_application_services_dummy_EDIT.Data'
+        $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_EDIT.Data'
     type: object
-  go-skeleton_internal_application_services_dummy_GET.Response:
+  github_com_Open-Zord_zord_internal_application_services_dummy_GET.Response:
     properties:
       Data:
-        $ref: '#/definitions/go-skeleton_internal_application_domain_dummy.Dummy'
+        $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_domain_dummy.Dummy'
     type: object
-  go-skeleton_internal_application_services_dummy_LIST.Response:
+  github_com_Open-Zord_zord_internal_application_services_dummy_LIST.Response:
     properties:
       CurrentPage:
         type: integer
       Data:
         items:
-          $ref: '#/definitions/go-skeleton_internal_application_domain_dummy.Dummy'
+          $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_domain_dummy.Dummy'
         type: array
       TotalPages:
+        format: int64
         type: integer
     type: object
 info:
@@ -103,19 +106,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services_dummy_LIST.Response'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_LIST.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
       summary: List Dummy
       tags:
       - Dummy
@@ -128,7 +131,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/go-skeleton_internal_application_services_dummy_CREATE.Data'
+          $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_CREATE.Data'
       - description: tenant name
         in: header
         name: Tenant
@@ -139,19 +142,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services_dummy_CREATE.Response'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_CREATE.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
       summary: Create Dummy
       tags:
       - Dummy
@@ -175,19 +178,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services_dummy_DELETE.Response'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_DELETE.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
       summary: Delete Dummy
       tags:
       - Dummy
@@ -210,19 +213,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services_dummy_GET.Response'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_GET.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
       summary: Get a Dummy
       tags:
       - Dummy
@@ -240,7 +243,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/go-skeleton_internal_application_services_dummy_EDIT.Data'
+          $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_EDIT.Data'
       - description: tenant name
         in: header
         name: Tenant
@@ -251,19 +254,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services_dummy_EDIT.Response'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_EDIT.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/go-skeleton_internal_application_services.Error'
+            $ref: '#/definitions/github_com_Open-Zord_zord_internal_application_services.Error'
       summary: Edit Dummy
       tags:
       - Dummy

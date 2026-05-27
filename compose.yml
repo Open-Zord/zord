@@ -52,5 +52,5 @@ volumes:
 
 networks:
   default:
-    name: go-skeleton-network
+    name: zord-network
     external: true

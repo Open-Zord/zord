@@ -11,18 +11,18 @@ COPY . .
 
 RUN go mod download
 
-RUN go build -o /go-skeleton cmd/http/main.go
+RUN go build -o /zord cmd/http/main.go
 
 ## Deploy
 FROM alpine:3.20.2
 
 WORKDIR /
 
-COPY --from=build /go-skeleton /
+COPY --from=build /zord /
 
 RUN touch .env
 RUN touch .config.env
 
 EXPOSE 8080
 
-CMD ["./go-skeleton", "http"]
+CMD ["./zord", "http"]
