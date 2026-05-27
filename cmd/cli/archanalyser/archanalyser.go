@@ -2,7 +2,7 @@ package archanalyser
 
 import (
 	"fmt"
-	"go-skeleton/tools/arch_analyser"
+	"github.com/Open-Zord/zord/tools/arch_analyser"
 	"os"
 
 	"github.com/spf13/cobra"

@@ -1,7 +1,7 @@
 package bootstrap
 
 import (
-	"go-skeleton/pkg/registry"
+	"github.com/Open-Zord/zord/pkg/registry"
 )
 
 // registerHandlers builds and registers the HTTP handlers into the registry.

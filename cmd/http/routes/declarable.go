@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"go-skeleton/pkg/registry"
+	"github.com/Open-Zord/zord/pkg/registry"
 
 	"github.com/labstack/echo/v4"
 )

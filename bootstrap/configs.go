@@ -1,7 +1,7 @@
 package bootstrap
 
 import (
-	"go-skeleton/pkg/config"
+	"github.com/Open-Zord/zord/pkg/config"
 )
 
 // loadConfigs reads the envs and returns the config instance plus the apiPrefix.

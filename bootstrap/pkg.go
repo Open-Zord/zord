@@ -1,12 +1,12 @@
 package bootstrap
 
 import (
-	"go-skeleton/pkg/config"
-	"go-skeleton/pkg/database"
-	"go-skeleton/pkg/idCreator"
-	"go-skeleton/pkg/logger"
-	"go-skeleton/pkg/registry"
-	"go-skeleton/pkg/validator"
+	"github.com/Open-Zord/zord/pkg/config"
+	"github.com/Open-Zord/zord/pkg/database"
+	"github.com/Open-Zord/zord/pkg/idCreator"
+	"github.com/Open-Zord/zord/pkg/logger"
+	"github.com/Open-Zord/zord/pkg/registry"
+	"github.com/Open-Zord/zord/pkg/validator"
 )
 
 // registerPkg registers the primitive dependencies: logger, validator, config,

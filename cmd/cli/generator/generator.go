@@ -2,9 +2,9 @@ package generator
 
 import (
 	"errors"
-	"go-skeleton/pkg/config"
-	"go-skeleton/pkg/logger"
-	"go-skeleton/tools/generator"
+	"github.com/Open-Zord/zord/pkg/config"
+	"github.com/Open-Zord/zord/pkg/logger"
+	"github.com/Open-Zord/zord/tools/generator"
 
 	"github.com/spf13/cobra"
 )

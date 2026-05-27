@@ -1,7 +1,7 @@
 package bootstrap
 
 import (
-	"go-skeleton/pkg/registry"
+	"github.com/Open-Zord/zord/pkg/registry"
 )
 
 // registerServices builds and registers the application services (use cases)

@@ -1,4 +1,4 @@
-module go-skeleton
+module github.com/Open-Zord/zord
 
 go 1.22
 

@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	dummy "go-skeleton/internal/application/domain/dummy"
+	dummy "github.com/Open-Zord/zord/internal/application/domain/dummy"
 
 	mock "github.com/stretchr/testify/mock"
 )

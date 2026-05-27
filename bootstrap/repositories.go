@@ -1,9 +1,9 @@
 package bootstrap
 
 import (
-	dummyRepository "go-skeleton/internal/repositories/dummy"
-	"go-skeleton/pkg/database"
-	"go-skeleton/pkg/registry"
+	dummyRepository "github.com/Open-Zord/zord/internal/repositories/dummy"
+	"github.com/Open-Zord/zord/pkg/database"
+	"github.com/Open-Zord/zord/pkg/registry"
 
 	"github.com/jmoiron/sqlx"
 )

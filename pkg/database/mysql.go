@@ -1,7 +1,7 @@
 package database
 
 import (
-	"go-skeleton/pkg/logger"
+	"github.com/Open-Zord/zord/pkg/logger"
 	"log"
 
 	"github.com/go-sql-driver/mysql"

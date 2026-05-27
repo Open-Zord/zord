@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/spf13/cobra"
-	"go-skeleton/cmd/cli/cli"
+	"github.com/Open-Zord/zord/cmd/cli/cli"
 )
 
 func main() {

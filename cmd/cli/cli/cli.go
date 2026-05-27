@@ -1,9 +1,9 @@
 package cli
 
 import (
-	"go-skeleton/cmd/cli/archanalyser"
-	"go-skeleton/cmd/cli/generator"
-	"go-skeleton/cmd/cli/migrator"
+	"github.com/Open-Zord/zord/cmd/cli/archanalyser"
+	"github.com/Open-Zord/zord/cmd/cli/generator"
+	"github.com/Open-Zord/zord/cmd/cli/migrator"
 
 	"github.com/spf13/cobra"
 )

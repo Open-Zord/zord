@@ -1,8 +1,8 @@
 package routes
 
 import (
-	"go-skeleton/cmd/http/handlers"
-	"go-skeleton/pkg/registry"
+	"github.com/Open-Zord/zord/cmd/http/handlers"
+	"github.com/Open-Zord/zord/pkg/registry"
 
 	"github.com/labstack/echo/v4"
 )

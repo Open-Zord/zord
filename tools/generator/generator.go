@@ -2,7 +2,7 @@ package generator
 
 import (
 	"errors"
-	"go-skeleton/pkg/logger"
+	"github.com/Open-Zord/zord/pkg/logger"
 	"io/fs"
 	"os"
 	"path/filepath"

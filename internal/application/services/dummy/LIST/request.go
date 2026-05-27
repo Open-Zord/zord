@@ -2,8 +2,8 @@ package dummy
 
 import (
 	"errors"
-	"go-skeleton/internal/application/domain/dummy"
-	"go-skeleton/internal/application/providers/filters"
+	"github.com/Open-Zord/zord/internal/application/domain/dummy"
+	"github.com/Open-Zord/zord/internal/application/providers/filters"
 )
 
 type Request struct {

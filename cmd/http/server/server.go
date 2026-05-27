@@ -3,12 +3,12 @@ package server
 import (
 	"fmt"
 	echoSwagger "github.com/swaggo/echo-swagger"
-	"go-skeleton/cmd/http/middlewares"
-	"go-skeleton/cmd/http/routes"
-	"go-skeleton/docs"
-	"go-skeleton/pkg/config"
-	"go-skeleton/pkg/logger"
-	"go-skeleton/pkg/registry"
+	"github.com/Open-Zord/zord/cmd/http/middlewares"
+	"github.com/Open-Zord/zord/cmd/http/routes"
+	"github.com/Open-Zord/zord/docs"
+	"github.com/Open-Zord/zord/pkg/config"
+	"github.com/Open-Zord/zord/pkg/logger"
+	"github.com/Open-Zord/zord/pkg/registry"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"

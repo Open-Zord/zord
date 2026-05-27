@@ -1,9 +1,9 @@
 package dummy
 
 import (
-	"go-skeleton/internal/application/providers/filters"
-	"go-skeleton/internal/application/providers/pagination"
-	"go-skeleton/internal/repositories/base_repository"
+	"github.com/Open-Zord/zord/internal/application/providers/filters"
+	"github.com/Open-Zord/zord/internal/application/providers/pagination"
+	"github.com/Open-Zord/zord/internal/repositories/base_repository"
 )
 
 type Dummy struct {

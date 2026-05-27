@@ -1,7 +1,7 @@
 package generator
 
 import (
-	"go-skeleton/pkg/logger"
+	"github.com/Open-Zord/zord/pkg/logger"
 	"os"
 	"regexp"
 )
