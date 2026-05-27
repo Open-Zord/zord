@@ -2,7 +2,6 @@ package cli
 
 import (
 	"github.com/Open-Zord/zord/cmd/cli/archanalyser"
-	"github.com/Open-Zord/zord/cmd/cli/generator"
 	"github.com/Open-Zord/zord/cmd/cli/migrator"
 
 	"github.com/spf13/cobra"
@@ -19,9 +18,6 @@ func NewCli(cmd *cobra.Command) *Cli {
 }
 
 func (c *Cli) Start() {
-	generatorInstance := generator.NewGenerator()
-	generatorInstance.DeclareCommands(c.Cmd)
-	generatorInstance.DeclareDomainCreatorFromSchema(c.Cmd)
 	migratorInstance := migrator.NewMigrator()
 	migratorInstance.DeclareCommands(c.Cmd)
 	archAnalyserInstance := archanalyser.NewArchAnalyser()

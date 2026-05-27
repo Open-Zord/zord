@@ -1,7 +1,0 @@
-package {{domain}}
-
-import domain "go-skeleton/internal/application/domain/{{domain}}"
-
-type Response struct {
-	Data   *domain.{{domainPascalCase}}
-}
