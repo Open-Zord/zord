@@ -58,25 +58,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services_dummy_LIST.Response"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_LIST.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     }
                 }
@@ -99,7 +99,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services_dummy_CREATE.Data"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_CREATE.Data"
                         }
                     },
                     {
@@ -113,25 +113,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services_dummy_CREATE.Response"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_CREATE.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     }
                 }
@@ -168,25 +168,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services_dummy_GET.Response"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_GET.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     }
                 }
@@ -216,7 +216,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services_dummy_EDIT.Data"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_EDIT.Data"
                         }
                     },
                     {
@@ -230,25 +230,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services_dummy_EDIT.Response"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_EDIT.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     }
                 }
@@ -283,25 +283,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services_dummy_DELETE.Response"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_DELETE.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/go-skeleton_internal_application_services.Error"
+                            "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services.Error"
                         }
                     }
                 }
@@ -309,9 +309,12 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "go-skeleton_internal_application_domain_dummy.Dummy": {
+        "github_com_Open-Zord_zord_internal_application_domain_dummy.Dummy": {
             "type": "object",
             "properties": {
+                "DeletedAt": {
+                    "type": "string"
+                },
                 "DummyName": {
                     "type": "string"
                 },
@@ -323,7 +326,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-skeleton_internal_application_services.Error": {
+        "github_com_Open-Zord_zord_internal_application_services.Error": {
             "type": "object",
             "properties": {
                 "Error": {
@@ -335,7 +338,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-skeleton_internal_application_services_dummy_CREATE.Data": {
+        "github_com_Open-Zord_zord_internal_application_services_dummy_CREATE.Data": {
             "type": "object",
             "required": [
                 "DummyName",
@@ -352,15 +355,15 @@ const docTemplate = `{
                 }
             }
         },
-        "go-skeleton_internal_application_services_dummy_CREATE.Response": {
+        "github_com_Open-Zord_zord_internal_application_services_dummy_CREATE.Response": {
             "type": "object",
             "properties": {
                 "Data": {
-                    "$ref": "#/definitions/go-skeleton_internal_application_domain_dummy.Dummy"
+                    "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_domain_dummy.Dummy"
                 }
             }
         },
-        "go-skeleton_internal_application_services_dummy_DELETE.Response": {
+        "github_com_Open-Zord_zord_internal_application_services_dummy_DELETE.Response": {
             "type": "object",
             "properties": {
                 "Message": {
@@ -368,7 +371,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-skeleton_internal_application_services_dummy_EDIT.Data": {
+        "github_com_Open-Zord_zord_internal_application_services_dummy_EDIT.Data": {
             "type": "object",
             "required": [
                 "DummyName",
@@ -383,23 +386,23 @@ const docTemplate = `{
                 }
             }
         },
-        "go-skeleton_internal_application_services_dummy_EDIT.Response": {
+        "github_com_Open-Zord_zord_internal_application_services_dummy_EDIT.Response": {
             "type": "object",
             "properties": {
                 "Data": {
-                    "$ref": "#/definitions/go-skeleton_internal_application_services_dummy_EDIT.Data"
+                    "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_services_dummy_EDIT.Data"
                 }
             }
         },
-        "go-skeleton_internal_application_services_dummy_GET.Response": {
+        "github_com_Open-Zord_zord_internal_application_services_dummy_GET.Response": {
             "type": "object",
             "properties": {
                 "Data": {
-                    "$ref": "#/definitions/go-skeleton_internal_application_domain_dummy.Dummy"
+                    "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_domain_dummy.Dummy"
                 }
             }
         },
-        "go-skeleton_internal_application_services_dummy_LIST.Response": {
+        "github_com_Open-Zord_zord_internal_application_services_dummy_LIST.Response": {
             "type": "object",
             "properties": {
                 "CurrentPage": {
@@ -408,11 +411,12 @@ const docTemplate = `{
                 "Data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/go-skeleton_internal_application_domain_dummy.Dummy"
+                        "$ref": "#/definitions/github_com_Open-Zord_zord_internal_application_domain_dummy.Dummy"
                     }
                 },
                 "TotalPages": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int64"
                 }
             }
         }

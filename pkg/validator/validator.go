@@ -8,6 +8,9 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// RegistryKey is the key under which the validator is registered in the registry.
+const RegistryKey = "validator"
+
 var validationMessages = map[string]string{
 	"alpha":                "The :attribute may only contain letters.",
 	"alphanum":             "The :attribute may only contain letters and numbers.",

@@ -3,7 +3,7 @@ package base_repository
 import (
 	"errors"
 	"fmt"
-	"go-skeleton/internal/application/providers/filters"
+	"github.com/Open-Zord/zord/internal/application/providers/filters"
 	"strings"
 
 	"github.com/fatih/structs"

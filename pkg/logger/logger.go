@@ -5,6 +5,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// RegistryKey is the key under which the logger is registered in the registry.
+const RegistryKey = "logger"
+
 type Logger struct {
 	env          string
 	app          string

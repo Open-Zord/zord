@@ -1,6 +1,6 @@
 package dummy
 
-import "go-skeleton/internal/application/domain/dummy"
+import "github.com/Open-Zord/zord/internal/application/domain/dummy"
 
 type Data struct {
 	ID string `param:"id"`

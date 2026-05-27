@@ -5,7 +5,10 @@ allowed = [
   "internal/application/domain",
   "internal/repositories",
   "internal/application/providers",
-  "internal/application/context"
+  "internal/application/context",
+  # TODO: remover quando a refatoração do UnitOfWork abstrair *sqlx.Tx
+  # das interfaces de repositório expostas ao service layer.
+  "github.com/jmoiron/sqlx"
 ]
 
 [domain]
@@ -15,7 +18,8 @@ allowed = [] # Apenas stdlib
 allowed = [
   "internal/application/domain",
   "github.com/fatih/structs",
-  "github.com/jmoiron/sqlx"
+  "github.com/jmoiron/sqlx",
+  "github.com/go-sql-driver/mysql"
 ]
 
 [providers]

@@ -2,7 +2,7 @@ package pagination
 
 import (
 	"errors"
-	"go-skeleton/internal/application/providers/filters"
+	"github.com/Open-Zord/zord/internal/application/providers/filters"
 	"math"
 )
 

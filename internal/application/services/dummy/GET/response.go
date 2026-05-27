@@ -1,7 +1,7 @@
 package dummy
 
 import (
-	"go-skeleton/internal/application/domain/dummy"
+	"github.com/Open-Zord/zord/internal/application/domain/dummy"
 )
 
 type Response struct {

@@ -1,11 +1,14 @@
 package dummyRepository
 
 import (
-	"go-skeleton/internal/application/domain/dummy"
-	"go-skeleton/internal/repositories/base_repository"
+	"github.com/Open-Zord/zord/internal/application/domain/dummy"
+	"github.com/Open-Zord/zord/internal/repositories/base_repository"
 
 	"github.com/jmoiron/sqlx"
 )
+
+// RegistryKey is the key under which the dummy repository is registered in the registry.
+const RegistryKey = "dummyRepository"
 
 type DummyRepository struct {
 	*base_repository.BaseRepo[dummy.Dummy]

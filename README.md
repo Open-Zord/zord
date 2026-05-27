@@ -1,14 +1,14 @@
 # Zord Microframework
 ## Build your mecha
 
-> **Tip for Cursor users:**
-> To ensure code quality and automatic validations, add the following rule to **User rules** in Cursor:
-> 
-> **after each code update, run the arch-analyse mcp tool**
-> 
-> This way, every code change will be automatically validated by the MCP architecture analysis tool.
+> **Tip for MCP-aware clients (Cursor, Claude, etc.):**
+> To ensure code quality and automatic validations, add the following rule to your client's **User rules**:
+>
+> **after each code update, run the `arch_analyze` MCP tool**
+>
+> This way, every code change is automatically validated by the architecture analysis tool.
 
-GOlang base repository with code gen to create a fast golang project based on hexagonal architeture
+GOlang base repository with an AST-driven code generator to bootstrap a fast Golang project based on hexagonal architecture.
 
 ---
 
@@ -21,6 +21,8 @@ Up mysql and zord project:
 ``` SHELL
 docker compose up
 ```
+
+The compose stack joins an external network named `zord-network`.
 
 <br />
 
@@ -57,7 +59,7 @@ This command will ensure that a MySQL server is running in the background, allow
 
 ---
 
-### Cli
+### CLI
 
 #### build cli
 
@@ -71,38 +73,88 @@ then you can run all cli commands with the binary file
 ./cli -h
 ```
 
-if you`re developing something in the cli the best way is run it directly to all changes 
+if you're developing something in the cli the best way is to run it directly so all changes are picked up
 ``` SHELL
-go run cmd/cli/main.go
+go run ./cmd/cli -h
 ```
 
 ---
 
-#### Cli Commands
+#### CLI Commands
 
-create new domain (crud):
+Run architecture analysis over all domains (lint):
 ``` SHELL
-./cli create-domain {{domain}}
+go run ./cmd/cli arch-analyse
 ```
 
-destroy domain:
+Inspect the database from the HCL description:
 ``` SHELL
-./cli destroy-domain {{domain}}
+go run ./cmd/cli inspect
 ```
 
-migrate all domains:
+Migrate the database from the HCL description:
 ``` SHELL
-./cli migrate
+go run ./cmd/cli migrate
 ```
 
-**Obs:** If you`re generating code inside docker container you need to change generated folder and file permissions to code out of docker container.
+Generate an HCL schema from an existing database:
+``` SHELL
+go run ./cmd/cli generate-schema-from-db <schema name> <database name>
+```
 
-run the follow command to edit generated files:
+**Obs:** If you're generating code inside a docker container you need to change generated folder and file permissions to use the code outside the container.
+
+run the following command to fix generated file ownership:
 ``` SHELL
 sudo chown $USER:$USER -R .
 ```
 
-if you have a group name different from username change the command accordingly
+if you have a group name different from your username change the command accordingly
+
+---
+
+### Code generation (scaffold)
+
+Code generation is done by the `scaffold` binary — an **AST-pure**, layer-by-layer generator. It never templates whole files blindly; it edits the Go AST of the target layer so the output stays compilable and idempotent.
+
+``` SHELL
+go run ./cmd/scaffold --help
+```
+
+The generator is organized in command groups, one per architectural layer:
+
+| Group | Subcommands | Purpose |
+|---|---|---|
+| `domain` | `create`, `delete` | Domain struct under `internal/application/domain/<name>/` |
+| `field` | `add`, `remove` | Granular fields on a domain struct |
+| `derive` | `schema` | (Re)generate or remove the domain's Atlas HCL block |
+| `repository` | `create`, `delete`, `port`, `unport`, `register`, `unregister` | sqlx repository adapter + Repository interface on the domain + DI wire-up in `bootstrap/repositories.go` |
+| `service` | `create`, `delete`, `register`, `unregister` | Use-case-per-folder service + DI wire-up in `bootstrap/services.go` |
+| `request` | `field`, `validator` | `request.go` Data struct fields and validation toggle of a use case |
+| `response` | `field` | `response.go` Response struct fields of a use case |
+| `handler` | `create`, `delete`, `register`, `unregister` | 1:1 HTTP handler for a service + DI wire-up in `bootstrap/handlers.go` |
+| `route` | `create`, `add`, `remove`, `delete`, `register`, `unregister` | HTTP route file per domain + registration in `cmd/http/routes/declarable.go` |
+| `projection` | `create`, `field` | Projection structs (return types for aggregate queries) |
+
+Use `go run ./cmd/scaffold <group> --help` and `go run ./cmd/scaffold <group> <subcommand> --help` to see the exact flags for each command.
+
+**Obs:** When generating code inside a docker container, fix file ownership afterwards with `sudo chown $USER:$USER -R .`.
+
+---
+
+### Dependency injection (`bootstrap/`)
+
+The `bootstrap/` package is the single authorized wiring point of the project — `cmd`, `internal` and `pkg` never construct their dependencies elsewhere.
+
+`bootstrap.Setup()` loads the configs and assembles the dependency graph into `pkg/registry` in **topological order**:
+
+```
+pkg → repositories → services → handlers
+```
+
+It returns the ready-to-use `*registry.Registry` and the API prefix. Each layer's `register*` function (`registerPkg`, `registerRepositories`, `registerServices`, `registerHandlers`) lives in its own file (`bootstrap/pkg.go`, `repositories.go`, `services.go`, `handlers.go`). Dependencies are looked up with the typed helper `registry.Resolve[T](reg, key)`.
+
+The scaffold `register`/`unregister` subcommands edit these `bootstrap/*.go` files automatically — you rarely touch them by hand.
 
 ---
 
@@ -121,161 +173,67 @@ go test ./... -coverprofile=coverage.out
 go tool cover -html=coverage.out
 ```
 
-### Docs (WIP):
-https://github.com/not-empty/zord-microframework-golang/wiki
+---
 
 ### Development
 
 Want to contribute? Great!
 
-The project using a simple code.
-Make a change in your file and be careful with your updates!
-**Any new code will only be accepted with all validations.**
-
-
-**Not Empty Foundation - Free codes, full minds**
+Make a change in your files and be careful with your updates.
+**Any new code is only accepted with all validations passing** — run `go run ./cmd/cli arch-analyse` before opening a PR.
 
 ---
 
 ### MCP Server
 
-The MCP (Model-Controller-Provider) server provides a set of tools for code generation and database management through Claude Desktop integration.
+`zord-mcp` is the project's Model Context Protocol server. It exposes the scaffold generator and the architecture analyser as MCP tools over **stdio** transport, so an MCP-aware client (Cursor, Claude, etc.) can generate code and lint architecture directly.
 
-#### Building the MCP Server
+It provides **32 tools**: the `scaffold_*` family (one per scaffold subcommand — domain, field, derive, repository, service, request/response field, handler, route, projection) plus `arch_analyze`. Full per-tool documentation lives in `tools/mcp/README.md`.
 
-To build the MCP server into a binary file:
+#### Running the server
 
 ``` SHELL
-go build -o mcp cmd/mcp/main.go
+go run ./cmd/mcp --repo .
 ```
 
-#### Configuring Claude Desktop
+`--repo` sets the target repository the tools operate on (defaults to the current working directory). Each individual tool call can also override the target via an optional `repo` argument.
 
-To use the MCP server with Claude Desktop, you need to configure it in your Claude Desktop settings. Add the following configuration to your Claude Desktop tools:
+#### Configuring an MCP client
 
-```json
-{
-  "name": "zord-mcp",
-  "description": "Zord Microframework MCP Server",
-  "command": "path/to/project/mcp",
-  "transport": "stdio"
-}
-```
-
-Replace `path/to/project/mcp` with the actual path to your MCP server binary.
-
-#### Example: Running MCP Server via Docker
-
-To build the MCP Docker image, run:
-
-```sh
-docker build -t zord-mcp -f docker/mcp/Dockerfile .
-```
-
-To use the MCP server with Claude Desktop via Docker, add the following configuration to your Claude Desktop tools:
+The repository ships a ready-to-use client config at `zord-mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "zord-mcp": {
-      "name": "zord-mcp-docker",
-      "description": "Zord MCP Server via Docker",
-      "command": "docker run -i --rm --env-file /your/project/.env -v /your/project:/app zord-mcp",
-      "transport": "stdio",
-      "tools": []
+      "type": "stdio",
+      "command": "go",
+      "args": ["run", "./cmd/mcp", "--repo", "."],
+      "env": {}
     }
   }
 }
 ```
 
-Note: if you have another mcp server add it inside the mcpServers key with another name, like this: 
+Point your MCP client at this config (or copy the `mcpServers.zord-mcp` entry into your client's settings). If you prefer a prebuilt binary, swap `command`/`args` for the compiled `mcp` binary:
+
+``` SHELL
+go build -o mcp ./cmd/mcp
+```
 
 ```json
 {
   "mcpServers": {
     "zord-mcp": {
-      "name": "zord-mcp-docker",
-      "description": "Zord MCP Server via Docker",
-      "command": "docker run -i --rm --env-file /your/project/.env -v /your/project:/app zord-mcp",
-      "transport": "stdio",
-      "tools": []
-    },
-    "zord-mcp2": {
-      "name": "zord-mcp-docker",
-      "description": "Zord MCP Server via Docker",
-      "command": "docker run -i --rm --env-file /your/project/.env -v /your/project:/app zord-mcp",
-      "transport": "stdio",
-      "tools": []
-    },
+      "type": "stdio",
+      "command": "/abs/path/to/mcp",
+      "args": ["--repo", "/abs/path/to/your/repo"],
+      "env": {}
+    }
   }
 }
 ```
 
-This will run the MCP server inside a Docker container and connect it to Claude Desktop using stdio transport.
+#### Smoke test
 
-#### Available Tools
-
-The MCP server provides the following tools:
-
-1. **Create Domain**
-   - Tool: `create-domain`
-   - Description: Creates a new domain service
-   - Arguments:
-     - `name`: Name of the domain to create (required)
-     - `validator`: Whether to create domain with validation (optional)
-     - `domainType`: Type of domain to create (default: crud)
-
-2. **Destroy Domain**
-   - Tool: `destroy-domain`
-   - Description: Destroys a domain service
-   - Arguments:
-     - `name`: Name of the domain to destroy (required)
-     - `domainType`: Type of domain to destroy (default: crud)
-
-3. **Create Domain from Schema**
-   - Tool: `create-domain-from-schema`
-   - Description: Creates a domain from database schema
-   - Arguments:
-     - `schemaName`: Name of the schema to use (required)
-     - `tableName`: Optional specific table to generate
-
-4. **Migrate**
-   - Tool: `migrate`
-   - Description: Migrates database schema
-   - Arguments:
-     - `tenant`: Optional tenant name for migration
-
-5. **Inspect**
-   - Tool: `inspect`
-   - Description: Inspects database schema
-   - No arguments required
-
-6. **Generate Schema from DB**
-   - Tool: `generate-schema-from-db`
-   - Description: Generates schema from database
-   - Arguments:
-     - `schemaName`: Name for the generated schema (required)
-     - `databaseName`: Optional specific database to generate from
-
-#### Environment Variables
-
-The MCP server requires the following environment variables to be set:
-
-```env
-ENVIRONMENT=development
-APP=zord
-VERSION=1.0.0
-DB_USER=your_db_user
-DB_PASS=your_db_password
-DB_URL=localhost
-DB_PORT=3306
-DB_DATABASE=your_database
-DB_TEST_DATABASE=your_test_database
-```
-
-Make sure to set these variables in your `.env` file before running the MCP server.
-
-To test the MCP server directly, you can run:
-```sh
-docker run -i zord-mcp
-```
+A full end-to-end smoke test that drives the server through real tool calls (create a domain + service via MCP) lives at `tools/mcp/demo.sh`.

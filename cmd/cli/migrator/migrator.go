@@ -2,9 +2,9 @@ package migrator
 
 import (
 	"fmt"
-	"go-skeleton/pkg/config"
-	"go-skeleton/pkg/logger"
-	"go-skeleton/tools/migrator"
+	"github.com/Open-Zord/zord/pkg/config"
+	"github.com/Open-Zord/zord/pkg/logger"
+	"github.com/Open-Zord/zord/tools/migrator"
 	"net/url"
 
 	"github.com/spf13/cobra"

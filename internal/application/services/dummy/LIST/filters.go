@@ -1,6 +1,6 @@
 package dummy
 
-import "go-skeleton/internal/application/providers/filters"
+import "github.com/Open-Zord/zord/internal/application/providers/filters"
 
 func (r *Request) SetFiltersRules() error {
 	parseErr := r.Filters.Parse(

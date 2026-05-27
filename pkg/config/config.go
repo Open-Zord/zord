@@ -9,6 +9,9 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// RegistryKey is the key under which the config is registered in the registry.
+const RegistryKey = "config"
+
 type Config struct {
 }
 

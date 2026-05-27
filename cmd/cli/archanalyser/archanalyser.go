@@ -2,7 +2,7 @@ package archanalyser
 
 import (
 	"fmt"
-	"go-skeleton/tools/arch_analyser"
+	"github.com/Open-Zord/zord/tools/arch_analyser"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -141,4 +141,44 @@ func (a *ArchAnalyser) Analyse(_ *cobra.Command, _ []string) {
 		os.Exit(1)
 	}
 	fmt.Println("Validação de type assertions (.()) concluída com sucesso!")
+
+	// Validação de pacotes órfãos
+	err = arch_analyser.ValidateNoOrphanPackages(root)
+	if err != nil {
+		fmt.Println("[ERRO]", err)
+		os.Exit(1)
+	}
+	fmt.Println("Validação de pacotes órfãos concluída com sucesso!")
+
+	// Validação de imports de internal em pkg
+	err = arch_analyser.ValidatePkgNoInternalImports(root)
+	if err != nil {
+		fmt.Println("[ERRO]", err)
+		os.Exit(1)
+	}
+	fmt.Println("Validação de imports de internal em pkg concluída com sucesso!")
+
+	// Validação de nomenclatura de domínios
+	err = arch_analyser.ValidateDomainNaming(root)
+	if err != nil {
+		fmt.Println("[ERRO]", err)
+		os.Exit(1)
+	}
+	fmt.Println("Validação de nomenclatura de domínios concluída com sucesso!")
+
+	// Validação de cross-imports entre handlers
+	err = arch_analyser.ValidateNoHandlerCrossImports(root)
+	if err != nil {
+		fmt.Println("[ERRO]", err)
+		os.Exit(1)
+	}
+	fmt.Println("Validação de cross-imports entre handlers concluída com sucesso!")
+
+	// Validação de layout do scaffold
+	err = arch_analyser.ValidateScaffoldLayout(root)
+	if err != nil {
+		fmt.Println("[ERRO]", err)
+		os.Exit(1)
+	}
+	fmt.Println("Validação de layout do scaffold concluída com sucesso!")
 }

@@ -1,5 +1,0 @@
-package {{usecase}}
-
-type Response struct {
-    Data string
-}
