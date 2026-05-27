@@ -8,6 +8,9 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// RegistryKey is the key under which the *sqlx.DB is registered in the registry.
+const RegistryKey = "db"
+
 type MySql struct {
 	logger   *logger.Logger
 	Db       *sqlx.DB
