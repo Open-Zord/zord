@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="brand.png" alt="Zord" width="480" />
+</p>
+
 # Zord Microframework
 ## Build your mecha
 
