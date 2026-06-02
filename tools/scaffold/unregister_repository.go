@@ -35,21 +35,21 @@ type UnregisterRepositoryOptions struct {
 //
 // Validações (todas obrigatórias, falham sem mutar disco):
 //   - Domain é PascalCase exportável.
-//   - `bootstrap/repositories.go` existe e contém `registerRepositories(reg *registry.Registry)`.
+//   - `bootstrap/http/repositories.go` existe e contém `registerRepositories(reg *registry.Registry)`.
 //   - O import existe.
 //   - A linha `reg.Provide(<alias>.RegistryKey, _)` existe em registerRepositories.
 //
 // Não inspeciona o pacote do repository no disco — o unregister deve funcionar
 // mesmo que o dev já tenha apagado `internal/repositories/<snake>/`.
 //
-// Não inspeciona `bootstrap/services.go` nem outros arquivos procurando uses
+// Não inspeciona `bootstrap/http/services.go` nem outros arquivos procurando uses
 // downstream do RegistryKey: o fluxo natural é unregister → apagar o pacote →
 // ajustar services que dependiam dele, e o compile error guia ao próximo
 // passo. Rodar apenas este comando sem seguir a sequência deixa
 // `Resolve[T](reg, <alias>.RegistryKey)` válido em compile time mas com
 // `panic` em runtime — responsabilidade do dev.
 //
-// Retorna o caminho relativo do arquivo editado (`bootstrap/repositories.go`).
+// Retorna o caminho relativo do arquivo editado (`bootstrap/http/repositories.go`).
 func UnregisterRepository(opts UnregisterRepositoryOptions) (string, error) {
 	plan, err := planRepository(RegisterRepositoryOptions(opts))
 	if err != nil {

@@ -8,7 +8,7 @@ import (
 )
 
 // registerHandlerForUnregister é um atalho pra preparar o estado pré-unregister:
-// seed do domínio, do service, do handler e do bootstrap/handlers.go, seguido
+// seed do domínio, do service, do handler e do bootstrap/http/handlers.go, seguido
 // do RegisterHandler de verdade. Falha o teste se qualquer passo falha.
 func registerHandlerForUnregister(t *testing.T, root, domain, service string) {
 	t.Helper()
@@ -24,7 +24,7 @@ func registerHandlerForUnregister(t *testing.T, root, domain, service string) {
 func TestUnregisterHandler_HappyPath(t *testing.T) {
 	root := t.TempDir()
 	registerHandlerForUnregister(t, root, "Auth", "Login")
-	before := readFile(t, filepath.Join(root, "bootstrap", "handlers.go"))
+	before := readFile(t, filepath.Join(root, "bootstrap", "http", "handlers.go"))
 	if !strings.Contains(before, `authloginhandler "zord/cmd/http/handlers/auth/login"`) {
 		t.Fatalf("pré-condição falhou: import aliased ausente:\n%s", before)
 	}
@@ -33,7 +33,7 @@ func TestUnregisterHandler_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UnregisterHandler: %v", err)
 	}
-	if want := filepath.Join("bootstrap", "handlers.go"); rel != want {
+	if want := filepath.Join("bootstrap", "http", "handlers.go"); rel != want {
 		t.Errorf("path: got %q, want %q", rel, want)
 	}
 	got := readFile(t, filepath.Join(root, rel))
@@ -52,7 +52,7 @@ func TestUnregisterHandler_HappyPath_CompoundDomain(t *testing.T) {
 	if _, err := UnregisterHandler(UnregisterHandlerOptions{Root: root, Domain: "UsageRecord", Service: "Export"}); err != nil {
 		t.Fatalf("UnregisterHandler: %v", err)
 	}
-	got := readFile(t, filepath.Join(root, "bootstrap", "handlers.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "handlers.go"))
 	mustNotContain(t, got,
 		`usagerecordexporthandler "zord/cmd/http/handlers/usage_record/export"`,
 		"usagerecordexporthandler.RegistryKey",
@@ -68,7 +68,7 @@ func TestUnregisterHandler_HappyPath_CompoundService(t *testing.T) {
 	if _, err := UnregisterHandler(UnregisterHandlerOptions{Root: root, Domain: "Org", Service: "CreateMembership"}); err != nil {
 		t.Fatalf("UnregisterHandler: %v", err)
 	}
-	got := readFile(t, filepath.Join(root, "bootstrap", "handlers.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "handlers.go"))
 	mustNotContain(t, got,
 		`orgcreatemembershiphandler "zord/cmd/http/handlers/org/create_membership"`,
 		"orgcreatemembershiphandler.RegistryKey",
@@ -79,14 +79,14 @@ func TestUnregisterHandler_HappyPath_CompoundService(t *testing.T) {
 
 func TestUnregisterHandler_FailsIfImportMissing(t *testing.T) {
 	root := t.TempDir()
-	// bootstrap/handlers.go com linha de Provide mas SEM import — caso patológico
+	// bootstrap/http/handlers.go com linha de Provide mas SEM import — caso patológico
 	// pra garantir que a validação do import roda antes da remoção do Provide.
-	relFile := filepath.Join("bootstrap", "handlers.go")
+	relFile := filepath.Join("bootstrap", "http", "handlers.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -113,12 +113,12 @@ func registerHandlers(reg *registry.Registry) {
 
 func TestUnregisterHandler_FailsIfProvideMissing(t *testing.T) {
 	root := t.TempDir()
-	relFile := filepath.Join("bootstrap", "handlers.go")
+	relFile := filepath.Join("bootstrap", "http", "handlers.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import (
 	authloginhandler "zord/cmd/http/handlers/auth/login"
@@ -162,7 +162,7 @@ func TestUnregisterHandler_FailsIfBothMissing(t *testing.T) {
 
 func TestUnregisterHandler_FailsIfBootstrapMissing(t *testing.T) {
 	root := t.TempDir()
-	// bootstrap/handlers.go ausente.
+	// bootstrap/http/handlers.go ausente.
 
 	_, err := UnregisterHandler(UnregisterHandlerOptions{Root: root, Domain: "Auth", Service: "Login"})
 	if err == nil {
@@ -172,12 +172,12 @@ func TestUnregisterHandler_FailsIfBootstrapMissing(t *testing.T) {
 
 func TestUnregisterHandler_FailsIfRegisterFuncMissing(t *testing.T) {
 	root := t.TempDir()
-	relFile := filepath.Join("bootstrap", "handlers.go")
+	relFile := filepath.Join("bootstrap", "http", "handlers.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -224,12 +224,12 @@ func TestUnregisterHandler_IsIdempotentFailureAfterSuccess(t *testing.T) {
 	if _, err := UnregisterHandler(UnregisterHandlerOptions{Root: root, Domain: "Auth", Service: "Login"}); err != nil {
 		t.Fatalf("primeiro UnregisterHandler: %v", err)
 	}
-	afterFirst := readFile(t, filepath.Join(root, "bootstrap", "handlers.go"))
+	afterFirst := readFile(t, filepath.Join(root, "bootstrap", "http", "handlers.go"))
 
 	if _, err := UnregisterHandler(UnregisterHandlerOptions{Root: root, Domain: "Auth", Service: "Login"}); err == nil {
 		t.Fatalf("segundo UnregisterHandler: esperado erro, got nil")
 	}
-	afterSecond := readFile(t, filepath.Join(root, "bootstrap", "handlers.go"))
+	afterSecond := readFile(t, filepath.Join(root, "bootstrap", "http", "handlers.go"))
 	if afterFirst != afterSecond {
 		t.Fatalf("arquivo mutado em falha idempotente:\n--- depois do 1º ---\n%s\n--- depois do 2º ---\n%s", afterFirst, afterSecond)
 	}
@@ -241,18 +241,18 @@ func TestUnregisterHandler_IsIdempotentFailureAfterSuccess(t *testing.T) {
 // o Rbrace após remoção do ExprStmt) — lição da NAVE-88.
 //
 // Seed com import já em forma grouped e Provide pré-existente: bate com o
-// shape real de bootstrap/handlers.go.
+// shape real de bootstrap/http/handlers.go.
 func TestUnregisterHandler_RoundTripIsByteIdentical(t *testing.T) {
 	root := t.TempDir()
 	seedDomain(t, root, "Auth")
 	seedService(t, root, "Auth", "Login")
 	seedHandler(t, root, "Auth", "Login")
-	relFile := filepath.Join("bootstrap", "handlers.go")
+	relFile := filepath.Join("bootstrap", "http", "handlers.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import (
 	authlogouthandler "zord/cmd/http/handlers/auth/logout"
@@ -298,7 +298,7 @@ func TestUnregisterHandler_PreservesSiblingProvides(t *testing.T) {
 	if _, err := UnregisterHandler(UnregisterHandlerOptions{Root: root, Domain: "Auth", Service: "Logout"}); err != nil {
 		t.Fatalf("UnregisterHandler Logout: %v", err)
 	}
-	got := readFile(t, filepath.Join(root, "bootstrap", "handlers.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "handlers.go"))
 	mustContain(t, got,
 		`authloginhandler "zord/cmd/http/handlers/auth/login"`,
 		"reg.Provide(authloginhandler.RegistryKey, authloginhandler.NewLoginHandler(reg))",

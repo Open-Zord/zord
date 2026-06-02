@@ -1,4 +1,4 @@
-// Package scaffold (área register) edita os arquivos de wire-up em `bootstrap/` para registrar
+// Package scaffold (área register) edita os arquivos de wire-up em `bootstrap/http/` para registrar
 // services, repositories e handlers no container DI (`pkg/registry`). Cada kind
 // vive em um arquivo do pacote (service.go, repository.go, handler.go) e expõe
 // uma função única que recebe Options e retorna o caminho relativo do arquivo
@@ -7,7 +7,7 @@
 // O scaffold deste pacote completa o ciclo iniciado por `service create`
 // (NAVE-59), `repository create` (NAVE-58) e `handler create` (NAVE-70):
 // criar o esqueleto compilável de cada camada é metade do trabalho; conectar
-// no `bootstrap/` continua manual sem este pacote.
+// no `bootstrap/http/` continua manual sem este pacote.
 package scaffold
 
 import (
@@ -25,6 +25,7 @@ import (
 
 const (
 	bootstrapBasePath     = "bootstrap"
+	bootstrapHTTPSubpath  = "http"
 	bootstrapServicesFile = "services.go"
 	registerServicesFunc  = "registerServices"
 )
@@ -43,7 +44,7 @@ type RegisterServiceOptions struct {
 	Verb string
 }
 
-// RegisterService patcha `bootstrap/services.go` adicionando o import do pacote do
+// RegisterService patcha `bootstrap/http/services.go` adicionando o import do pacote do
 // verbo e a chamada `reg.Provide(<pkg>.RegistryKey, <pkg>.NewService(log, idC))`
 // ao fim da função `registerServices`.
 //
@@ -52,12 +53,12 @@ type RegisterServiceOptions struct {
 //   - O arquivo do service existe
 //     (`internal/application/services/<snake_domain>/<snake_verb>/service.go`)
 //     e contém `const RegistryKey` + `func NewService`.
-//   - `bootstrap/services.go` existe e contém a função
+//   - `bootstrap/http/services.go` existe e contém a função
 //     `registerServices(reg *registry.Registry)`.
 //   - O import e a linha de `Provide` ainda não existem (idempotente: re-rodar
 //     sempre falha).
 //
-// Retorna o caminho relativo do arquivo editado (`bootstrap/services.go`).
+// Retorna o caminho relativo do arquivo editado (`bootstrap/http/services.go`).
 func RegisterService(opts RegisterServiceOptions) (string, error) {
 	plan, err := planService(opts)
 	if err != nil {
@@ -215,7 +216,7 @@ func planService(opts RegisterServiceOptions) (servicePlan, error) {
 	}
 	plan.snakeDomain = ToSnake(opts.Domain)
 	plan.snakeVerb = ToSnake(opts.Verb)
-	plan.relFile = filepath.Join(bootstrapBasePath, bootstrapServicesFile)
+	plan.relFile = filepath.Join(bootstrapBasePath, bootstrapHTTPSubpath, bootstrapServicesFile)
 	plan.absFile = filepath.Join(plan.root, plan.relFile)
 	plan.importPath = imp.join(servicesImportSubpath + "/" + plan.snakeDomain + "/" + plan.snakeVerb)
 	// CP3 substituirá pkgIdent por alias quando houver colisão; por ora o

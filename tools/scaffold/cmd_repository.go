@@ -139,7 +139,7 @@ func newRepositoryDeleteCmd() *cobra.Command {
 		Short: "Apaga a pasta internal/repositories/<snake>/ (simétrico a create)",
 		Long: `Remove internal/repositories/<snake>/ inteira via os.RemoveAll.
 
-Falha se houver wire-up residual em bootstrap/repositories.go — rode
+Falha se houver wire-up residual em bootstrap/http/repositories.go — rode
 ` + "`scaffold repository unregister <Domain>`" + ` antes. Falha se a pasta não
 existir.
 
@@ -164,8 +164,8 @@ func newRepositoryRegisterCmd() *cobra.Command {
 	var opts RegisterRepositoryOptions
 	c := &cobra.Command{
 		Use:   "register <Domain>",
-		Short: "Registra o repository em bootstrap/repositories.go (DI wire-up)",
-		Long: `Patcha bootstrap/repositories.go via AST adicionando:
+		Short: "Registra o repository em bootstrap/http/repositories.go (DI wire-up)",
+		Long: `Patcha bootstrap/http/repositories.go via AST adicionando:
   - import com alias <snake_domain sem underscores>repo do pacote do repositório
   - linha reg.Provide(<alias>.RegistryKey, <alias>.New<Domain>Repository(db))
     ao fim de registerRepositories(reg *registry.Registry)
@@ -195,8 +195,8 @@ func newRepositoryUnregisterCmd() *cobra.Command {
 	var opts UnregisterRepositoryOptions
 	c := &cobra.Command{
 		Use:   "unregister <Domain>",
-		Short: "Remove a ligação do repository em bootstrap/repositories.go (DI wire-down)",
-		Long: `Patcha bootstrap/repositories.go via AST removendo:
+		Short: "Remove a ligação do repository em bootstrap/http/repositories.go (DI wire-down)",
+		Long: `Patcha bootstrap/http/repositories.go via AST removendo:
   - import com alias <snake_domain sem underscores>repo do pacote do repositório
   - linha reg.Provide(<alias>.RegistryKey, _) em registerRepositories
 

@@ -17,7 +17,7 @@ func TestRegisterRepository_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RegisterRepository: %v", err)
 	}
-	if want := filepath.Join("bootstrap", "repositories.go"); rel != want {
+	if want := filepath.Join("bootstrap", "http", "repositories.go"); rel != want {
 		t.Errorf("path: got %q, want %q", rel, want)
 	}
 	got := readFile(t, filepath.Join(root, rel))
@@ -36,7 +36,7 @@ func TestRegisterRepository_HappyPath_CompoundDomain(t *testing.T) {
 	if _, err := RegisterRepository(RegisterRepositoryOptions{Root: root, Domain: "OrgMembership"}); err != nil {
 		t.Fatalf("RegisterRepository: %v", err)
 	}
-	got := readFile(t, filepath.Join(root, "bootstrap", "repositories.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "repositories.go"))
 	mustContain(t, got,
 		`orgmembershiprepo "zord/internal/repositories/org_membership"`,
 		"reg.Provide(orgmembershiprepo.RegistryKey, orgmembershiprepo.NewOrgMembershipRepository(db))",
@@ -100,15 +100,15 @@ func TestRegisterRepository_FailsIfImportAlreadyPresent(t *testing.T) {
 func TestRegisterRepository_FailsIfProvideCallAlreadyPresent(t *testing.T) {
 	root := t.TempDir()
 	seedRepositoryFile(t, root, "Organization")
-	// bootstrap/repositories.go pré-populado com a linha de Provide mas SEM o
+	// bootstrap/http/repositories.go pré-populado com a linha de Provide mas SEM o
 	// import — caso patológico pra garantir que a checagem de Provide funciona
 	// independentemente do estado do bloco de imports.
-	relFile := filepath.Join("bootstrap", "repositories.go")
+	relFile := filepath.Join("bootstrap", "http", "repositories.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -151,7 +151,7 @@ func TestRegisterRepository_FailsOnInvalidIdent(t *testing.T) {
 func TestRegisterRepository_FailsIfBootstrapMissing(t *testing.T) {
 	root := t.TempDir()
 	seedRepositoryFile(t, root, "Organization")
-	// bootstrap/repositories.go ausente
+	// bootstrap/http/repositories.go ausente
 
 	_, err := RegisterRepository(RegisterRepositoryOptions{Root: root, Domain: "Organization"})
 	if err == nil {
@@ -162,12 +162,12 @@ func TestRegisterRepository_FailsIfBootstrapMissing(t *testing.T) {
 func TestRegisterRepository_FailsIfRegisterFuncMissing(t *testing.T) {
 	root := t.TempDir()
 	seedRepositoryFile(t, root, "Organization")
-	relFile := filepath.Join("bootstrap", "repositories.go")
+	relFile := filepath.Join("bootstrap", "http", "repositories.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -192,12 +192,12 @@ func TestRegisterRepository_DoesNotMutateOnFailure(t *testing.T) {
 	if _, err := RegisterRepository(RegisterRepositoryOptions{Root: root, Domain: "Organization"}); err != nil {
 		t.Fatalf("primeiro RegisterRepository: %v", err)
 	}
-	before := readFile(t, filepath.Join(root, "bootstrap", "repositories.go"))
+	before := readFile(t, filepath.Join(root, "bootstrap", "http", "repositories.go"))
 
 	if _, err := RegisterRepository(RegisterRepositoryOptions{Root: root, Domain: "Organization"}); err == nil {
 		t.Fatalf("segundo RegisterRepository: esperado erro, got nil")
 	}
-	after := readFile(t, filepath.Join(root, "bootstrap", "repositories.go"))
+	after := readFile(t, filepath.Join(root, "bootstrap", "http", "repositories.go"))
 	if before != after {
 		t.Fatalf("arquivo mutado após falha:\n--- before ---\n%s\n--- after ---\n%s", before, after)
 	}
@@ -284,16 +284,16 @@ type %sRepository struct {
 	}
 }
 
-// seedBootstrapRepositories grava um `bootstrap/repositories.go` mínimo: a
+// seedBootstrapRepositories grava um `bootstrap/http/repositories.go` mínimo: a
 // função `registerRepositories(reg *registry.Registry)` com corpo vazio.
 func seedBootstrapRepositories(t *testing.T, root string) {
 	t.Helper()
-	relFile := filepath.Join("bootstrap", "repositories.go")
+	relFile := filepath.Join("bootstrap", "http", "repositories.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -301,6 +301,6 @@ func registerRepositories(reg *registry.Registry) {
 }
 `
 	if err := os.WriteFile(absFile, []byte(src), 0o600); err != nil {
-		t.Fatalf("seed bootstrap/repositories.go: %v", err)
+		t.Fatalf("seed bootstrap/http/repositories.go: %v", err)
 	}
 }

@@ -47,11 +47,11 @@ type UnregisterServiceOptions struct {
 //
 // Validações (todas obrigatórias, falham sem mutar disco):
 //   - Domain e Verb são PascalCase exportáveis.
-//   - `bootstrap/services.go` existe e contém `registerServices(reg *registry.Registry)`.
+//   - `bootstrap/http/services.go` existe e contém `registerServices(reg *registry.Registry)`.
 //   - O import existe (com ou sem alias).
 //   - A linha `reg.Provide(<pkgIdent>.RegistryKey, _)` existe em registerServices.
 //
-// Não inspeciona `bootstrap/handlers.go` nem `cmd/http/routes/declarable.go`
+// Não inspeciona `bootstrap/http/handlers.go` nem `cmd/http/routes/declarable.go`
 // procurando uses do RegistryKey: o fluxo natural de desmontagem é
 // `service unregister` → apagar o pacote do verbo → `handler unregister` →
 // `route unregister`, e o compile error guia ao próximo passo quando o pacote
@@ -59,7 +59,7 @@ type UnregisterServiceOptions struct {
 // `Resolve[T](reg, <pkg>.RegistryKey)` válido em compile time, mas com `panic`
 // em runtime — responsabilidade do dev.
 //
-// Retorna o caminho relativo do arquivo editado (`bootstrap/services.go`).
+// Retorna o caminho relativo do arquivo editado (`bootstrap/http/services.go`).
 func UnregisterService(opts UnregisterServiceOptions) (string, error) {
 	plan, err := planService(RegisterServiceOptions(opts))
 	if err != nil {

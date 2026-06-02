@@ -30,15 +30,24 @@ import (
 // (decisão: não criar pacote "layout" compartilhado).
 // ---------------------------------------------------------------------------
 
-// bootstrapAllowedFiles é o conjunto fechado de arquivos de bootstrap/. Nada
-// novo entra sem virar violação.
-var bootstrapAllowedFiles = map[string]struct{}{
+// bootstrapHTTPAllowedFiles é o conjunto fechado de arquivos de
+// bootstrap/http/. Nada novo entra sem virar violação. Os demais entrypoints
+// (cli, mcp, etc.) terão suas próprias allowlists em subpacotes irmãos.
+var bootstrapHTTPAllowedFiles = map[string]struct{}{
 	"configs.go":      {},
 	"handlers.go":     {},
 	"pkg.go":          {},
 	"repositories.go": {},
 	"services.go":     {},
 	"setup.go":        {},
+}
+
+// bootstrapAllowedSubdirs lista as pastas permitidas diretamente sob
+// bootstrap/: uma por entrypoint do monorepo. Mantém bootstrap/ como índice de
+// entrypoints — qualquer arquivo solto na raiz ou subdir fora dessa lista é
+// violação.
+var bootstrapAllowedSubdirs = map[string]struct{}{
+	"http": {},
 }
 
 // routesAllowedExtraFiles são os arquivos de cmd/http/routes/ que não seguem o
@@ -107,7 +116,11 @@ func ValidateScaffoldLayout(root string) error {
 		len(c.violations), strings.Join(lines, "\n"))
 }
 
-// checkBootstrap valida bootstrap/ contra o conjunto fechado de arquivos.
+// checkBootstrap valida bootstrap/ como índice de entrypoints (cada um em seu
+// subpacote) e cada subpacote conhecido contra o conjunto fechado de
+// arquivos. bootstrap/ não pode ter arquivos soltos: arquivo .go direto na
+// raiz é violação. Subdiretório fora da allowlist (hoje apenas http/) também
+// é violação. Cada entrypoint conhecido é validado por checkBootstrapEntry.
 func (c *layoutChecker) checkBootstrap() {
 	dir := filepath.Join(c.root, "bootstrap")
 	entries, err := os.ReadDir(dir)
@@ -117,7 +130,9 @@ func (c *layoutChecker) checkBootstrap() {
 	for _, e := range entries {
 		full := filepath.Join(dir, e.Name())
 		if e.IsDir() {
-			c.add(full, "bootstrap", "subdiretório não permitido em bootstrap/ (conjunto fechado de arquivos)")
+			if _, ok := bootstrapAllowedSubdirs[e.Name()]; !ok {
+				c.add(full, "bootstrap", "subdiretório fora da allowlist de entrypoints em bootstrap/ (hoje só http/)")
+			}
 			continue
 		}
 		if !strings.HasSuffix(e.Name(), ".go") {
@@ -126,8 +141,34 @@ func (c *layoutChecker) checkBootstrap() {
 		if strings.HasSuffix(e.Name(), "_test.go") {
 			continue
 		}
-		if _, ok := bootstrapAllowedFiles[e.Name()]; !ok {
-			c.add(full, "bootstrap", "arquivo fora do conjunto fechado de bootstrap/ (configs/handlers/pkg/repositories/services/setup)")
+		c.add(full, "bootstrap", "arquivo solto na raiz de bootstrap/ — cada entrypoint vive em seu próprio subpacote (ex.: bootstrap/http/)")
+	}
+	c.checkBootstrapEntry("http", bootstrapHTTPAllowedFiles)
+}
+
+// checkBootstrapEntry valida um subpacote de entrypoint de bootstrap/ contra
+// o conjunto fechado de arquivos esperado. Subdiretórios não são permitidos
+// dentro do entrypoint (cada entrypoint é um pacote plano).
+func (c *layoutChecker) checkBootstrapEntry(name string, allowed map[string]struct{}) {
+	dir := filepath.Join(c.root, "bootstrap", name)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		full := filepath.Join(dir, e.Name())
+		if e.IsDir() {
+			c.add(full, "bootstrap", fmt.Sprintf("subdiretório não permitido em bootstrap/%s/ (conjunto fechado de arquivos)", name))
+			continue
+		}
+		if !strings.HasSuffix(e.Name(), ".go") {
+			continue
+		}
+		if strings.HasSuffix(e.Name(), "_test.go") {
+			continue
+		}
+		if _, ok := allowed[e.Name()]; !ok {
+			c.add(full, "bootstrap", fmt.Sprintf("arquivo fora do conjunto fechado de bootstrap/%s/ (configs/handlers/pkg/repositories/services/setup)", name))
 		}
 	}
 }

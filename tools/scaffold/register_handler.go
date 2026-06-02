@@ -31,7 +31,7 @@ type RegisterHandlerOptions struct {
 	Service string
 }
 
-// RegisterHandler patcha `bootstrap/handlers.go` adicionando o import do pacote do
+// RegisterHandler patcha `bootstrap/http/handlers.go` adicionando o import do pacote do
 // handler (com alias `<snake_domain sem underscores><snake_service sem underscores>handler`)
 // e a chamada `reg.Provide(<alias>.RegistryKey, <alias>.New<Pascal>Handler(reg))`
 // ao fim da função `registerHandlers`.
@@ -41,12 +41,12 @@ type RegisterHandlerOptions struct {
 //   - O arquivo do handler existe
 //     (`cmd/http/handlers/<snake_domain>/<snake_service>/handler.go`) e contém
 //     `const RegistryKey` + `func New<Pascal>Handler`.
-//   - `bootstrap/handlers.go` existe e contém a função
+//   - `bootstrap/http/handlers.go` existe e contém a função
 //     `registerHandlers(reg *registry.Registry)`.
 //   - O import e a linha de `Provide` ainda não existem (idempotente: re-rodar
 //     sempre falha).
 //
-// Retorna o caminho relativo do arquivo editado (`bootstrap/handlers.go`).
+// Retorna o caminho relativo do arquivo editado (`bootstrap/http/handlers.go`).
 func RegisterHandler(opts RegisterHandlerOptions) (string, error) {
 	plan, err := planHandler(opts)
 	if err != nil {
@@ -118,7 +118,7 @@ func planHandler(opts RegisterHandlerOptions) (handlerPlan, error) {
 	plan.pascalService = opts.Service
 	plan.snakeDomain = ToSnake(opts.Domain)
 	plan.snakeService = ToSnake(opts.Service)
-	plan.relFile = filepath.Join(bootstrapBasePath, bootstrapHandlersFile)
+	plan.relFile = filepath.Join(bootstrapBasePath, bootstrapHTTPSubpath, bootstrapHandlersFile)
 	plan.absFile = filepath.Join(plan.root, plan.relFile)
 	plan.importPath = imp.join(handlersImportSubpath + "/" + plan.snakeDomain + "/" + plan.snakeService)
 	// Alias uniforme: <snake_domain sem _><snake_service sem _>handler. Casa com

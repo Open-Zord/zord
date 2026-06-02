@@ -29,7 +29,7 @@ type ServiceDeleteOptions struct {
 //
 //  1. Domain e Verb são PascalCase exportáveis.
 //  2. A pasta do verbo existe.
-//  3. Não há wire-up residual em `bootstrap/services.go` (import OU Provide).
+//  3. Não há wire-up residual em `bootstrap/http/services.go` (import OU Provide).
 //     Bootstrap ausente conta como OK; bootstrap presente sem
 //     `registerServices` também conta como OK (não há wire-up possível).
 //  4. Não existe handler 1:1 em `cmd/http/handlers/<snake_domain>/<snake_verb>/`.
@@ -75,13 +75,13 @@ func ServiceDelete(opts ServiceDeleteOptions) (string, error) {
 	return relDir, nil
 }
 
-// assertNoServiceWireUp parseia `bootstrap/services.go` (se existir) e devolve
+// assertNoServiceWireUp parseia `bootstrap/http/services.go` (se existir) e devolve
 // erro se ainda houver import OU linha de Provide associada ao verbo. Reusa
 // `findImportSpec`, `importIdent` e `findProvideStmt` definidos em
 // register_service.go/unregister_service.go.
 //
 // Casos OK (retornam nil):
-//   - `bootstrap/services.go` ausente — repo ainda sem bootstrap.
+//   - `bootstrap/http/services.go` ausente — repo ainda sem bootstrap.
 //   - Arquivo presente mas sem `registerServices` — não há wire-up possível.
 //   - Arquivo presente, função presente, mas nem import nem Provide referem
 //     o verbo.

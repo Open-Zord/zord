@@ -1,4 +1,4 @@
-package bootstrap
+package http
 
 import (
 	dummyRepository "github.com/Open-Zord/zord/internal/repositories/dummy"

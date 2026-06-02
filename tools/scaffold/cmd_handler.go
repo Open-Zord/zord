@@ -28,7 +28,7 @@ após validar, em ordem (falha sem mutar disco na primeira validação que falha
 
   1. Domain e Service são PascalCase exportáveis
   2. A pasta do handler existe
-  3. Sem wire-up residual em bootstrap/handlers.go (import OU Provide)
+  3. Sem wire-up residual em bootstrap/http/handlers.go (import OU Provide)
   4. Sem rota residual em cmd/http/routes/<snake_domain>.go: campo
      <lowerCamel>Handler na struct da Route, import do pacote do handler,
      OU uso r.<lowerCamel>Handler.Handle em Declare*Routes
@@ -98,8 +98,8 @@ func newHandlerRegisterCmd() *cobra.Command {
 	var opts RegisterHandlerOptions
 	c := &cobra.Command{
 		Use:   "register <Domain> <Service>",
-		Short: "Registra o handler em bootstrap/handlers.go (DI wire-up)",
-		Long: `Patcha bootstrap/handlers.go via AST adicionando:
+		Short: "Registra o handler em bootstrap/http/handlers.go (DI wire-up)",
+		Long: `Patcha bootstrap/http/handlers.go via AST adicionando:
   - import com alias <snake_domain sem _><snake_service sem _>handler do pacote
     do handler (ex.: Auth+Login → authloginhandler)
   - linha reg.Provide(<alias>.RegistryKey, <alias>.New<Service>Handler(reg))
@@ -133,8 +133,8 @@ func newHandlerUnregisterCmd() *cobra.Command {
 	var opts UnregisterHandlerOptions
 	c := &cobra.Command{
 		Use:   "unregister <Domain> <Service>",
-		Short: "Remove o handler de bootstrap/handlers.go (desfaz a ligação no DI)",
-		Long: `Edita bootstrap/handlers.go via AST removendo:
+		Short: "Remove o handler de bootstrap/http/handlers.go (desfaz a ligação no DI)",
+		Long: `Edita bootstrap/http/handlers.go via AST removendo:
   - import com alias <snake_domain sem _><snake_service sem _>handler
     (ex.: Auth+Login → authloginhandler)
   - linha reg.Provide(<alias>.RegistryKey, _) em registerHandlers

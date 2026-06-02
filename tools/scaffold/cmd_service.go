@@ -56,8 +56,8 @@ func newServiceRegisterCmd() *cobra.Command {
 	var opts RegisterServiceOptions
 	c := &cobra.Command{
 		Use:   "register <Domain> <Verb>",
-		Short: "Registra o service em bootstrap/services.go (DI wire-up)",
-		Long: `Patcha bootstrap/services.go via AST adicionando:
+		Short: "Registra o service em bootstrap/http/services.go (DI wire-up)",
+		Long: `Patcha bootstrap/http/services.go via AST adicionando:
   - import do pacote do verbo (com alias <snake_domain>_<snake_verb> em colisão)
   - linha reg.Provide(<pkg>.RegistryKey, <pkg>.NewService(log, idC)) ao fim de
     registerServices(reg *registry.Registry)
@@ -95,7 +95,7 @@ após validar, em ordem (falha sem mutar disco na primeira validação que falha
 
   1. Domain e Verb são PascalCase exportáveis
   2. A pasta do verbo existe
-  3. Sem wire-up residual em bootstrap/services.go (import OU Provide)
+  3. Sem wire-up residual em bootstrap/http/services.go (import OU Provide)
   4. Sem handler 1:1 em cmd/http/handlers/<snake_domain>/<snake_verb>/
 
 Bootstrap ausente conta como OK (paridade com service create). Wire-up vivo
@@ -127,8 +127,8 @@ func newServiceUnregisterCmd() *cobra.Command {
 	var opts UnregisterServiceOptions
 	c := &cobra.Command{
 		Use:   "unregister <Domain> <Verb>",
-		Short: "Remove o service de bootstrap/services.go (desfaz a ligação no DI)",
-		Long: `Edita bootstrap/services.go via AST removendo:
+		Short: "Remove o service de bootstrap/http/services.go (desfaz a ligação no DI)",
+		Long: `Edita bootstrap/http/services.go via AST removendo:
   - import do pacote do verbo (bare ou aliased <snake_domain>_<snake_verb>)
   - linha reg.Provide(<pkg>.RegistryKey, _) em registerServices
 
