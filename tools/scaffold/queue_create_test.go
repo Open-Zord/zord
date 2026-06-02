@@ -76,7 +76,7 @@ func TestQueueCreate_HappyPath_Simple(t *testing.T) {
 	mustContain(t, repos,
 		"package worker",
 		`"zord/pkg/registry"`,
-		"func registerRepositories(_ *registry.Registry) {",
+		"func registerRepositories(reg *registry.Registry) {",
 	)
 
 	// services.go: empty body
@@ -84,7 +84,7 @@ func TestQueueCreate_HappyPath_Simple(t *testing.T) {
 	mustContain(t, services,
 		"package worker",
 		`"zord/pkg/registry"`,
-		"func registerServices(_ *registry.Registry) {",
+		"func registerServices(reg *registry.Registry) {",
 	)
 
 	// worker.go: NewHandler stub
