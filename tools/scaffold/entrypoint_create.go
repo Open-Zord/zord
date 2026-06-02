@@ -169,7 +169,9 @@ func buildEntrypointSetupFile(name string, imp importPaths) ([]byte, error) {
 
 	packageDoc := singleComment(fmt.Sprintf(
 		"// Package %s wires the %s entrypoint dependencies into pkg/registry.\n"+
-			"// Other entrypoints live in sibling subpackages of bootstrap/.", name, name))
+			"// Other entrypoints live in sibling subpackages of bootstrap/.\n"+
+			"//\n"+
+			"//zord:entrypoint skeleton", name, name))
 
 	// Posicionamento manual: pkg doc, package, imports já posicionados pelo
 	// padder via ImportGroups, gap, depois Setup.

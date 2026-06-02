@@ -3,6 +3,8 @@
 // is the single authorized wiring point of the HTTP entrypoint — cmd, internal
 // and pkg do not construct dependencies outside of here. Other entrypoints
 // (CLI, MCP, etc.) live in sibling subpackages of bootstrap/.
+//
+//zord:entrypoint http
 package http
 
 import (
