@@ -16,9 +16,12 @@ import (
 // `entrypoint` cria a casca cmd/<name>/ + bootstrap/<name>/ do monorepo
 // multi-entrypoint — é a operação top-level que precede qualquer scaffold de
 // camada (domain/repository/service/handler/route hoje só editam o entrypoint
-// http, que é o full-stack canônico).
+// http, que é o full-stack canônico). `queue` cria o esqueleto já preenchido
+// pra um worker de fila (driver omniq), atalho sobre `entrypoint` quando o
+// alvo é um consumer de fila e não um entrypoint genérico vazio.
 func registerTools(s *mcpsdk.Server, repo string) {
 	registerEntrypoint(s, repo)
+	registerQueue(s, repo)
 	registerDomain(s, repo)
 	registerField(s, repo)
 	registerDerive(s, repo)

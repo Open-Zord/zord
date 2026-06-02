@@ -28,6 +28,26 @@ implementar o runtime do entrypoint — futuros scaffolds específicos por tipo
 (grpc, queue, k8s operator, ...) vão preencher cada entrypoint com suas
 próprias camadas.
 
+Prep monorepo — novo worker de fila:
+
+```
+scaffold queue create <name> [--driver omniq]
+```
+
+Atalho sobre `entrypoint create` quando o alvo é um worker de fila. Gera 6
+arquivos em `bootstrap/<name>/` (setup, configs, pkg, repositories, services,
+worker) + `cmd/<name>/main.go` já preenchidos com a wire-up do driver. Hoje
+só `omniq` (`github.com/not-empty/omniq-go`) é suportado.
+
+Filosofia: 1 entrypoint == 1 fila == 1 worker. O nome da fila Redis vem do
+env `OMNIQ_QUEUE` em runtime — o `<name>` é só convenção de pacote Go. O
+`worker.go` exporta `NewHandler(reg) omniq.ConsumeHandler`, que é o stub
+onde o dev resolve services via `registry.Resolve` (closure) e decodifica o
+payload com `ctx.DecodePayload(&p)`. `main.go` é one-liner: `<name>boot.Run()`.
+
+Após rodar, o repo alvo precisa de `go mod tidy` pra trazer `omniq-go` ao
+`go.sum`.
+
 Fatia 1 (NAVE-56 + NAVE-95):
 
 ```
