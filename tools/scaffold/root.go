@@ -11,6 +11,7 @@ func NewRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	root.AddCommand(newEntrypointCmd())
 	root.AddCommand(newDomainCmd())
 	root.AddCommand(newFieldCmd())
 	root.AddCommand(newDeriveCmd())

@@ -56,17 +56,17 @@ func TestValidateScaffoldLayout_Bootstrap_ArquivoSoltoNaRaiz(t *testing.T) {
 	}
 }
 
-func TestValidateScaffoldLayout_Bootstrap_SubdiretorioForaDaAllowlist(t *testing.T) {
+func TestValidateScaffoldLayout_Bootstrap_NovoEntrypointPermitido(t *testing.T) {
+	// Multi-entrypoint (NAVE-159, prep monorepo): qualquer subpacote sob
+	// bootstrap/ é entrypoint legítimo. Closed-set só existe pra http/. Aqui
+	// um cli/ "vazio" (só setup.go, equivalente ao que `scaffold entrypoint
+	// create` gera) precisa passar — o validador não deve fingir conhecer a
+	// estrutura final dos entrypoints futuros.
 	files := bootstrapOK()
-	files["bootstrap/unknown/x.go"] = "package unknown\n"
+	files["bootstrap/cli/setup.go"] = "package cli\n"
 	root := setupFakeRepo(t, files)
-	err := ValidateScaffoldLayout(root)
-	if err == nil {
-		t.Fatal("esperava erro por subdiretório fora da allowlist em bootstrap/, mas passou")
-	}
-	if !strings.Contains(err.Error(), "bootstrap/unknown") ||
-		!strings.Contains(err.Error(), "allowlist de entrypoints") {
-		t.Fatalf("erro inesperado: %v", err)
+	if err := ValidateScaffoldLayout(root); err != nil {
+		t.Fatalf("novo entrypoint em bootstrap/cli/ deveria passar, mas reprovou: %v", err)
 	}
 }
 

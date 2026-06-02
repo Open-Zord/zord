@@ -15,6 +15,19 @@ Proposta de design: novo gerador de código backend (AST puro).
 
 ## Comandos disponíveis
 
+Prep monorepo — novo entrypoint:
+
+```
+scaffold entrypoint create <name>
+```
+
+Gera o esqueleto mínimo `bootstrap/<name>/setup.go` + `cmd/<name>/main.go`
+(um arquivo por camada). `<name>` é o nome do pacote Go em lowercase (ex.:
+`cli`, `grpc`, `redis_queue`). O esqueleto compila e dá o gancho pro dev
+implementar o runtime do entrypoint — futuros scaffolds específicos por tipo
+(grpc, queue, k8s operator, ...) vão preencher cada entrypoint com suas
+próprias camadas.
+
 Fatia 1 (NAVE-56 + NAVE-95):
 
 ```

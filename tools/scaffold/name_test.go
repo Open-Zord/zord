@@ -60,3 +60,22 @@ func TestIsValidExportedIdent(t *testing.T) {
 		}
 	}
 }
+
+func TestIsValidPackageIdent(t *testing.T) {
+	valid := []string{"http", "cli", "mcp", "grpc", "redis_queue", "a", "a1", "foo_bar_baz"}
+	invalid := []string{
+		"", "Http", "HTTP", "1grpc", "_cli", "redis-queue", "redis queue",
+		"redisQueue",
+		"func", "type", "package", "interface", // keywords
+	}
+	for _, s := range valid {
+		if !IsValidPackageIdent(s) {
+			t.Errorf("IsValidPackageIdent(%q) = false; want true", s)
+		}
+	}
+	for _, s := range invalid {
+		if IsValidPackageIdent(s) {
+			t.Errorf("IsValidPackageIdent(%q) = true; want false", s)
+		}
+	}
+}
