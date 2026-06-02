@@ -81,7 +81,7 @@ func registerRepository(s *mcpsdk.Server, repo string) {
 
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "scaffold_repository_register",
-		Description: "Edita bootstrap/repository.go registrando o repository no DI container (pkg/registry).",
+		Description: "Edita bootstrap/http/repositories.go registrando o repository no DI container (pkg/registry).",
 		Annotations: writingAnnotations("Scaffold: registrar repository no DI"),
 	}, func(_ context.Context, _ *mcpsdk.CallToolRequest, in repositoryRegisterInput) (*mcpsdk.CallToolResult, CommonOutput, error) {
 		target, err := effectiveRepo(in.Repo, repo)
@@ -106,7 +106,7 @@ func registerRepository(s *mcpsdk.Server, repo string) {
 func registerRepositoryInverse(s *mcpsdk.Server, repo string) {
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "scaffold_repository_unregister",
-		Description: "Edita bootstrap/repository.go desfazendo o registro do repository no DI (inverso de scaffold_repository_register).",
+		Description: "Edita bootstrap/http/repositories.go desfazendo o registro do repository no DI (inverso de scaffold_repository_register).",
 		Annotations: writingAnnotations("Scaffold: desregistrar repository do DI"),
 	}, func(_ context.Context, _ *mcpsdk.CallToolRequest, in repositoryUnregisterInput) (*mcpsdk.CallToolResult, CommonOutput, error) {
 		target, err := effectiveRepo(in.Repo, repo)

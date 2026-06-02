@@ -33,7 +33,7 @@ type UnregisterHandlerOptions struct {
 //
 // Validações (todas obrigatórias, falham sem mutar disco):
 //   - Domain e Service são PascalCase exportáveis.
-//   - `bootstrap/handlers.go` existe e contém `registerHandlers(reg *registry.Registry)`.
+//   - `bootstrap/http/handlers.go` existe e contém `registerHandlers(reg *registry.Registry)`.
 //   - O import existe com o alias esperado.
 //   - A linha `reg.Provide(<alias>.RegistryKey, _)` existe em registerHandlers.
 //
@@ -44,7 +44,7 @@ type UnregisterHandlerOptions struct {
 // sequência deixa o `Resolve[T](reg, <pkg>.RegistryKey)` na route table válido
 // em compile time, mas com `panic` em runtime — responsabilidade do dev.
 //
-// Retorna o caminho relativo do arquivo editado (`bootstrap/handlers.go`).
+// Retorna o caminho relativo do arquivo editado (`bootstrap/http/handlers.go`).
 func UnregisterHandler(opts UnregisterHandlerOptions) (string, error) {
 	plan, err := planHandler(RegisterHandlerOptions(opts))
 	if err != nil {

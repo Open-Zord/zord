@@ -39,7 +39,7 @@ const conventionsText = `# Convenções do scaffold
 
 ## Dependency injection
 - pkg/registry é o container DI (chave string → *T).
-- bootstrap/ wireia services, repositories e handlers no startup.
+- bootstrap/<entrypoint>/ wireia services, repositories e handlers no startup (hoje bootstrap/http/).
 - Constructors eager: New<Pascal>Handler chama registry.Resolve no boot, não
   no Handle. Falha rápida.
 

@@ -26,7 +26,7 @@ type RepositoryDeleteOptions struct {
 //
 //   - Domain é PascalCase exportável.
 //   - A pasta existe.
-//   - Não há wire-up residual em `bootstrap/repositories.go`. Quando o
+//   - Não há wire-up residual em `bootstrap/http/repositories.go`. Quando o
 //     arquivo de bootstrap existe e contém a função `registerRepositories`,
 //     procura via AST o ImportSpec do pacote (`<module>/internal/
 //     repositories/<snake_domain>`) e a chamada
@@ -76,7 +76,7 @@ func RepositoryDelete(opts RepositoryDeleteOptions) (string, error) {
 	return relDir, nil
 }
 
-// assertNoRepositoryWireUp falha se `bootstrap/repositories.go` ainda
+// assertNoRepositoryWireUp falha se `bootstrap/http/repositories.go` ainda
 // referencia o repository pelo importPath E pela chamada reg.Provide.
 // Tolerante a estados parciais: bootstrap ausente, função ausente, só
 // import sem Provide, ou só Provide sem import — todos considerados "sem

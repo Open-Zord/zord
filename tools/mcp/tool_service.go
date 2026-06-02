@@ -52,7 +52,7 @@ func registerService(s *mcpsdk.Server, repo string) {
 
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "scaffold_service_register",
-		Description: "Edita bootstrap/service.go registrando o service no DI container (pkg/registry).",
+		Description: "Edita bootstrap/http/services.go registrando o service no DI container (pkg/registry).",
 		Annotations: writingAnnotations("Scaffold: registrar service no DI"),
 	}, func(_ context.Context, _ *mcpsdk.CallToolRequest, in serviceRegisterInput) (*mcpsdk.CallToolResult, CommonOutput, error) {
 		target, err := effectiveRepo(in.Repo, repo)
@@ -73,7 +73,7 @@ func registerService(s *mcpsdk.Server, repo string) {
 
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "scaffold_service_unregister",
-		Description: "Edita bootstrap/service.go desfazendo o registro do service no DI (inverso de scaffold_service_register).",
+		Description: "Edita bootstrap/http/services.go desfazendo o registro do service no DI (inverso de scaffold_service_register).",
 		Annotations: writingAnnotations("Scaffold: desregistrar service do DI"),
 	}, func(_ context.Context, _ *mcpsdk.CallToolRequest, in serviceUnregisterInput) (*mcpsdk.CallToolResult, CommonOutput, error) {
 		target, err := effectiveRepo(in.Repo, repo)

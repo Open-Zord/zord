@@ -8,7 +8,7 @@ import (
 )
 
 // registerForUnregister é um atalho pra preparar o estado pré-unregister:
-// seed do domínio, do service e do bootstrap/services.go, seguido do
+// seed do domínio, do service e do bootstrap/http/services.go, seguido do
 // RegisterService de verdade. Falha o teste se qualquer passo falha.
 func registerForUnregister(t *testing.T, root, domain, verb string) {
 	t.Helper()
@@ -24,7 +24,7 @@ func TestUnregisterService_HappyPath_BareImport(t *testing.T) {
 	root := t.TempDir()
 	registerForUnregister(t, root, "Auth", "Login")
 	// Sanity: o registro deve ter sido bare.
-	before := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	before := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	if !strings.Contains(before, `"zord/internal/application/services/auth/login"`) {
 		t.Fatalf("pré-condição falhou: import bare ausente:\n%s", before)
 	}
@@ -33,7 +33,7 @@ func TestUnregisterService_HappyPath_BareImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UnregisterService: %v", err)
 	}
-	if want := filepath.Join("bootstrap", "services.go"); rel != want {
+	if want := filepath.Join("bootstrap", "http", "services.go"); rel != want {
 		t.Errorf("path: got %q, want %q", rel, want)
 	}
 	got := readFile(t, filepath.Join(root, rel))
@@ -59,7 +59,7 @@ func TestUnregisterService_HappyPath_AliasedImport(t *testing.T) {
 	if _, err := RegisterService(RegisterServiceOptions{Root: root, Domain: "Billing", Verb: "Create"}); err != nil {
 		t.Fatalf("RegisterService Billing: %v", err)
 	}
-	before := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	before := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	if !strings.Contains(before, `billing_create "zord/internal/application/services/billing/create"`) {
 		t.Fatalf("pré-condição falhou: alias billing_create ausente:\n%s", before)
 	}
@@ -67,7 +67,7 @@ func TestUnregisterService_HappyPath_AliasedImport(t *testing.T) {
 	if _, err := UnregisterService(UnregisterServiceOptions{Root: root, Domain: "Billing", Verb: "Create"}); err != nil {
 		t.Fatalf("UnregisterService Billing: %v", err)
 	}
-	got := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	// Remoção do aliased não pode afetar o registro bare do Org.Create.
 	mustNotContain(t, got,
 		`billing_create "zord/internal/application/services/billing/create"`,
@@ -82,15 +82,15 @@ func TestUnregisterService_HappyPath_AliasedImport(t *testing.T) {
 
 func TestUnregisterService_FailsIfImportMissing(t *testing.T) {
 	root := t.TempDir()
-	// bootstrap/services.go pré-populado com a linha de Provide mas SEM o
+	// bootstrap/http/services.go pré-populado com a linha de Provide mas SEM o
 	// import — caso patológico simétrico ao do register: garante que a
 	// validação do import roda antes da remoção do Provide.
-	relFile := filepath.Join("bootstrap", "services.go")
+	relFile := filepath.Join("bootstrap", "http", "services.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -117,13 +117,13 @@ func registerServices(reg *registry.Registry) {
 
 func TestUnregisterService_FailsIfProvideMissing(t *testing.T) {
 	root := t.TempDir()
-	// bootstrap/services.go com o import presente mas sem a linha de Provide.
-	relFile := filepath.Join("bootstrap", "services.go")
+	// bootstrap/http/services.go com o import presente mas sem a linha de Provide.
+	relFile := filepath.Join("bootstrap", "http", "services.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import (
 	"zord/internal/application/services/auth/login"
@@ -169,7 +169,7 @@ func TestUnregisterService_FailsIfBothMissing(t *testing.T) {
 
 func TestUnregisterService_FailsIfBootstrapMissing(t *testing.T) {
 	root := t.TempDir()
-	// bootstrap/services.go ausente.
+	// bootstrap/http/services.go ausente.
 
 	_, err := UnregisterService(UnregisterServiceOptions{Root: root, Domain: "Auth", Verb: "Login"})
 	if err == nil {
@@ -179,12 +179,12 @@ func TestUnregisterService_FailsIfBootstrapMissing(t *testing.T) {
 
 func TestUnregisterService_FailsIfRegisterFuncMissing(t *testing.T) {
 	root := t.TempDir()
-	relFile := filepath.Join("bootstrap", "services.go")
+	relFile := filepath.Join("bootstrap", "http", "services.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -231,13 +231,13 @@ func TestUnregisterService_IsIdempotentFailureAfterSuccess(t *testing.T) {
 	if _, err := UnregisterService(UnregisterServiceOptions{Root: root, Domain: "Auth", Verb: "Login"}); err != nil {
 		t.Fatalf("primeiro UnregisterService: %v", err)
 	}
-	afterFirst := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	afterFirst := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 
 	// Segundo unregister sobre o mesmo par já desligado — deve falhar sem mutar.
 	if _, err := UnregisterService(UnregisterServiceOptions{Root: root, Domain: "Auth", Verb: "Login"}); err == nil {
 		t.Fatalf("segundo UnregisterService: esperado erro, got nil")
 	}
-	afterSecond := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	afterSecond := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	if afterFirst != afterSecond {
 		t.Fatalf("arquivo mutado em falha idempotente:\n--- depois do 1º ---\n%s\n--- depois do 2º ---\n%s", afterFirst, afterSecond)
 	}
@@ -249,7 +249,7 @@ func TestUnregisterService_IsIdempotentFailureAfterSuccess(t *testing.T) {
 // último stmt e o Rbrace após remoção do ExprStmt.
 //
 // Usa seed com import já em forma grouped e um Provide pré-existente — bate
-// com o shape real de bootstrap/services.go. Seed bare (1 único import) +
+// com o shape real de bootstrap/http/services.go. Seed bare (1 único import) +
 // função vazia escapa do invariante porque astutil.AddNamedImport converte
 // bare em grouped no primeiro insert, e essa transformação não é revertida no
 // remove (comportamento esperado do astutil).
@@ -257,12 +257,12 @@ func TestUnregisterService_RoundTripIsByteIdentical(t *testing.T) {
 	root := t.TempDir()
 	seedDomain(t, root, "Auth")
 	seedService(t, root, "Auth", "Login")
-	relFile := filepath.Join("bootstrap", "services.go")
+	relFile := filepath.Join("bootstrap", "http", "services.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import (
 	"zord/internal/application/services"
@@ -312,7 +312,7 @@ func TestUnregisterService_PreservesSiblingProvides(t *testing.T) {
 	if _, err := UnregisterService(UnregisterServiceOptions{Root: root, Domain: "Auth", Verb: "Logout"}); err != nil {
 		t.Fatalf("UnregisterService Logout: %v", err)
 	}
-	got := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	// Login intacto.
 	mustContain(t, got,
 		`"zord/internal/application/services/auth/login"`,

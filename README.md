@@ -119,11 +119,11 @@ The generator is organized in command groups, one per architectural layer:
 | `domain` | `create`, `delete` | Domain struct under `internal/application/domain/<name>/` |
 | `field` | `add`, `remove` | Granular fields on a domain struct |
 | `derive` | `schema` | (Re)generate or remove the domain's Atlas HCL block |
-| `repository` | `create`, `delete`, `port`, `unport`, `register`, `unregister` | sqlx repository adapter + Repository interface on the domain + DI wire-up in `bootstrap/repositories.go` |
-| `service` | `create`, `delete`, `register`, `unregister` | Use-case-per-folder service + DI wire-up in `bootstrap/services.go` |
+| `repository` | `create`, `delete`, `port`, `unport`, `register`, `unregister` | sqlx repository adapter + Repository interface on the domain + DI wire-up in `bootstrap/http/repositories.go` |
+| `service` | `create`, `delete`, `register`, `unregister` | Use-case-per-folder service + DI wire-up in `bootstrap/http/services.go` |
 | `request` | `field`, `validator` | `request.go` Data struct fields and validation toggle of a use case |
 | `response` | `field` | `response.go` Response struct fields of a use case |
-| `handler` | `create`, `delete`, `register`, `unregister` | 1:1 HTTP handler for a service + DI wire-up in `bootstrap/handlers.go` |
+| `handler` | `create`, `delete`, `register`, `unregister` | 1:1 HTTP handler for a service + DI wire-up in `bootstrap/http/handlers.go` |
 | `route` | `create`, `add`, `remove`, `delete`, `register`, `unregister` | HTTP route file per domain + registration in `cmd/http/routes/declarable.go` |
 | `projection` | `create`, `field` | Projection structs (return types for aggregate queries) |
 
@@ -135,17 +135,17 @@ Use `go run ./cmd/scaffold <group> --help` and `go run ./cmd/scaffold <group> <s
 
 ### Dependency injection (`bootstrap/`)
 
-The `bootstrap/` package is the single authorized wiring point of the project — `cmd`, `internal` and `pkg` never construct their dependencies elsewhere.
+The `bootstrap/` directory is the single authorized wiring point of the project — `cmd`, `internal` and `pkg` never construct their dependencies elsewhere. It works as an index of entrypoints: each entrypoint has its own subpackage (`bootstrap/http/` today; `bootstrap/cli/`, `bootstrap/mcp/` etc. follow the same pattern when added).
 
-`bootstrap.Setup()` loads the configs and assembles the dependency graph into `pkg/registry` in **topological order**:
+`http.Setup()` (in `bootstrap/http`) loads the configs and assembles the dependency graph into `pkg/registry` in **topological order**:
 
 ```
 pkg → repositories → services → handlers
 ```
 
-It returns the ready-to-use `*registry.Registry` and the API prefix. Each layer's `register*` function (`registerPkg`, `registerRepositories`, `registerServices`, `registerHandlers`) lives in its own file (`bootstrap/pkg.go`, `repositories.go`, `services.go`, `handlers.go`). Dependencies are looked up with the typed helper `registry.Resolve[T](reg, key)`.
+It returns the ready-to-use `*registry.Registry` and the API prefix. Each layer's `register*` function (`registerPkg`, `registerRepositories`, `registerServices`, `registerHandlers`) lives in its own file (`bootstrap/http/pkg.go`, `repositories.go`, `services.go`, `handlers.go`). Dependencies are looked up with the typed helper `registry.Resolve[T](reg, key)`.
 
-The scaffold `register`/`unregister` subcommands edit these `bootstrap/*.go` files automatically — you rarely touch them by hand.
+The scaffold `register`/`unregister` subcommands edit these `bootstrap/http/*.go` files automatically — you rarely touch them by hand.
 
 ---
 

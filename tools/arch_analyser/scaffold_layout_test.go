@@ -5,15 +5,17 @@ import (
 	"testing"
 )
 
-// bootstrapOK monta o conjunto fechado de bootstrap/ esperado pelo scaffold.
+// bootstrapOK monta o conjunto fechado de bootstrap/http/ esperado pelo
+// scaffold. bootstrap/ é índice de entrypoints — http/ é o único entrypoint
+// hoje; cli/, mcp/ etc. virão como subpacotes irmãos.
 func bootstrapOK() map[string]string {
 	return map[string]string{
-		"bootstrap/configs.go":      "package bootstrap\n",
-		"bootstrap/handlers.go":     "package bootstrap\n",
-		"bootstrap/pkg.go":          "package bootstrap\n",
-		"bootstrap/repositories.go": "package bootstrap\n",
-		"bootstrap/services.go":     "package bootstrap\n",
-		"bootstrap/setup.go":        "package bootstrap\n",
+		"bootstrap/http/configs.go":      "package http\n",
+		"bootstrap/http/handlers.go":     "package http\n",
+		"bootstrap/http/pkg.go":          "package http\n",
+		"bootstrap/http/repositories.go": "package http\n",
+		"bootstrap/http/services.go":     "package http\n",
+		"bootstrap/http/setup.go":        "package http\n",
 	}
 }
 
@@ -26,13 +28,13 @@ func TestValidateScaffoldLayout_Bootstrap_OK(t *testing.T) {
 
 func TestValidateScaffoldLayout_Bootstrap_ArquivoExtra(t *testing.T) {
 	files := bootstrapOK()
-	files["bootstrap/extra.go"] = "package bootstrap\n"
+	files["bootstrap/http/extra.go"] = "package http\n"
 	root := setupFakeRepo(t, files)
 	err := ValidateScaffoldLayout(root)
 	if err == nil {
-		t.Fatal("esperava erro por arquivo extra em bootstrap/, mas passou")
+		t.Fatal("esperava erro por arquivo extra em bootstrap/http/, mas passou")
 	}
-	if !strings.Contains(err.Error(), "bootstrap/extra.go") {
+	if !strings.Contains(err.Error(), "bootstrap/http/extra.go") {
 		t.Fatalf("erro deveria citar o arquivo extra: %v", err)
 	}
 	if !strings.Contains(err.Error(), "[bootstrap]") {
@@ -40,22 +42,51 @@ func TestValidateScaffoldLayout_Bootstrap_ArquivoExtra(t *testing.T) {
 	}
 }
 
-func TestValidateScaffoldLayout_Bootstrap_Subdiretorio(t *testing.T) {
+func TestValidateScaffoldLayout_Bootstrap_ArquivoSoltoNaRaiz(t *testing.T) {
 	files := bootstrapOK()
-	files["bootstrap/sub/x.go"] = "package sub\n"
+	files["bootstrap/extra.go"] = "package bootstrap\n"
 	root := setupFakeRepo(t, files)
 	err := ValidateScaffoldLayout(root)
 	if err == nil {
-		t.Fatal("esperava erro por subdiretório em bootstrap/, mas passou")
+		t.Fatal("esperava erro por arquivo solto em bootstrap/, mas passou")
 	}
-	if !strings.Contains(err.Error(), "bootstrap/sub") {
-		t.Fatalf("erro deveria citar o subdiretório: %v", err)
+	if !strings.Contains(err.Error(), "bootstrap/extra.go") ||
+		!strings.Contains(err.Error(), "arquivo solto na raiz de bootstrap/") {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+}
+
+func TestValidateScaffoldLayout_Bootstrap_SubdiretorioForaDaAllowlist(t *testing.T) {
+	files := bootstrapOK()
+	files["bootstrap/unknown/x.go"] = "package unknown\n"
+	root := setupFakeRepo(t, files)
+	err := ValidateScaffoldLayout(root)
+	if err == nil {
+		t.Fatal("esperava erro por subdiretório fora da allowlist em bootstrap/, mas passou")
+	}
+	if !strings.Contains(err.Error(), "bootstrap/unknown") ||
+		!strings.Contains(err.Error(), "allowlist de entrypoints") {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+}
+
+func TestValidateScaffoldLayout_Bootstrap_SubdiretorioEmEntrypoint(t *testing.T) {
+	files := bootstrapOK()
+	files["bootstrap/http/sub/x.go"] = "package sub\n"
+	root := setupFakeRepo(t, files)
+	err := ValidateScaffoldLayout(root)
+	if err == nil {
+		t.Fatal("esperava erro por subdiretório em bootstrap/http/, mas passou")
+	}
+	if !strings.Contains(err.Error(), "bootstrap/http/sub") ||
+		!strings.Contains(err.Error(), "subdiretório não permitido em bootstrap/http/") {
+		t.Fatalf("erro inesperado: %v", err)
 	}
 }
 
 func TestValidateScaffoldLayout_Bootstrap_TestFileIgnorado(t *testing.T) {
 	files := bootstrapOK()
-	files["bootstrap/setup_test.go"] = "package bootstrap\n"
+	files["bootstrap/http/setup_test.go"] = "package http\n"
 	root := setupFakeRepo(t, files)
 	if err := ValidateScaffoldLayout(root); err != nil {
 		t.Fatalf("arquivo _test.go não deveria virar violação: %v", err)

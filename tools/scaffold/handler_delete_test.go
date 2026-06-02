@@ -50,7 +50,7 @@ func TestHandlerDelete_HappyPath_BootstrapPresentNoWireUp(t *testing.T) {
 		t.Errorf("pasta ainda existe após delete")
 	}
 	// Bootstrap intacto.
-	got := readFile(t, filepath.Join(root, "bootstrap", "handlers.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "handlers.go"))
 	mustContain(t, got, "func registerHandlers(reg *registry.Registry)")
 }
 
@@ -58,11 +58,11 @@ func TestHandlerDelete_HappyPath_BootstrapSemRegisterFunc(t *testing.T) {
 	root := t.TempDir()
 	seedHandlerWithoutBootstrap(t, root, "Auth", "Login")
 	// Bootstrap presente mas sem `registerHandlers` — não há wire-up possível.
-	absFile := filepath.Join(root, "bootstrap", "handlers.go")
+	absFile := filepath.Join(root, "bootstrap", "http", "handlers.go")
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -121,7 +121,7 @@ func TestHandlerDelete_FailsIfImportStillPresent(t *testing.T) {
 		t.Fatalf("RegisterHandler: %v", err)
 	}
 
-	before := readFile(t, filepath.Join(root, "bootstrap", "handlers.go"))
+	before := readFile(t, filepath.Join(root, "bootstrap", "http", "handlers.go"))
 	_, err := HandlerDelete(HandlerDeleteOptions{Root: root, Domain: "Auth", Service: "Login"})
 	if err == nil {
 		t.Fatalf("esperado erro pra wire-up vivo, got nil")
@@ -134,7 +134,7 @@ func TestHandlerDelete_FailsIfImportStillPresent(t *testing.T) {
 		t.Errorf("pasta foi apagada apesar do erro: %v", statErr)
 	}
 	// Bootstrap intocado.
-	after := readFile(t, filepath.Join(root, "bootstrap", "handlers.go"))
+	after := readFile(t, filepath.Join(root, "bootstrap", "http", "handlers.go"))
 	if before != after {
 		t.Errorf("bootstrap mutado em falha:\n%s", after)
 	}
@@ -147,12 +147,12 @@ func TestHandlerDelete_FailsIfProvideStillPresentWithoutImport(t *testing.T) {
 	seedDomain(t, root, "Auth")
 	seedService(t, root, "Auth", "Login")
 	seedHandler(t, root, "Auth", "Login")
-	absFile := filepath.Join(root, "bootstrap", "handlers.go")
+	absFile := filepath.Join(root, "bootstrap", "http", "handlers.go")
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	// Alias canônico (NAVE-70): "auth" + "login" + "handler" = "authloginhandler"
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 

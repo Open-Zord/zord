@@ -235,7 +235,7 @@ go run ./cmd/scaffold derive schema Widget --remove
 
 ## `service register` — wire-up no DI
 
-`scaffold service register <Domain> <Verb>` patcha `bootstrap/services.go` via AST adicionando:
+`scaffold service register <Domain> <Verb>` patcha `bootstrap/http/services.go` via AST adicionando:
 
 1. **Import** do pacote do verbo: `"zord/internal/application/services/<snake_domain>/<snake_verb>"`.
    - Bare quando o nome do pacote (`<snake_verb>`) é único entre os imports do arquivo.
@@ -249,12 +249,12 @@ go run ./cmd/scaffold derive schema Widget --remove
 ### Idempotência
 
 - Falha se o import OU a linha de `Provide` já existirem.
-- Sem mutação parcial: se qualquer validação falha, `bootstrap/services.go` permanece byte-a-byte igual ao estado anterior.
+- Sem mutação parcial: se qualquer validação falha, `bootstrap/http/services.go` permanece byte-a-byte igual ao estado anterior.
 
 ### Pré-condições
 
 - O service existe (`internal/application/services/<snake_domain>/<snake_verb>/service.go` com `const RegistryKey` + `func NewService`). Rode antes: `scaffold service create <Domain> <Verb>`.
-- `bootstrap/services.go` existe e contém a função `registerServices(reg *registry.Registry)`.
+- `bootstrap/http/services.go` existe e contém a função `registerServices(reg *registry.Registry)`.
 
 ### Limitações conhecidas (fatia 2)
 
@@ -265,7 +265,7 @@ go run ./cmd/scaffold derive schema Widget --remove
 
 ## `service unregister` — desfaz a ligação no DI
 
-`scaffold service unregister <Domain> <Verb>` edita `bootstrap/services.go` via AST removendo o que `service register` adicionou:
+`scaffold service unregister <Domain> <Verb>` edita `bootstrap/http/services.go` via AST removendo o que `service register` adicionou:
 
 1. **Import** do pacote do verbo (`"zord/internal/application/services/<snake_domain>/<snake_verb>"`).
    - Detecta o formato real do import. Bare (sem alias) ou aliased (`<snake_domain>_<snake_verb>`) — ambos suportados.
@@ -278,13 +278,13 @@ go run ./cmd/scaffold derive schema Widget --remove
 ### Idempotência
 
 - Falha se o import OU a linha de `Provide` não existirem.
-- Sem mutação parcial: se qualquer validação falha, `bootstrap/services.go` permanece byte-a-byte igual ao estado anterior.
+- Sem mutação parcial: se qualquer validação falha, `bootstrap/http/services.go` permanece byte-a-byte igual ao estado anterior.
 - Re-executar após sucesso anterior sempre falha (import e linha de `Provide` já foram removidos).
 
 ### O que NÃO faz
 
 - **Não apaga o pacote do service.** `internal/application/services/<snake_domain>/<snake_verb>/` continua no disco — use `scaffold service delete` (abaixo) pra apagar com guardas.
-- **Não inspeciona uses downstream** do `RegistryKey` em `bootstrap/handlers.go` ou em `cmd/http/routes/declarable.go`. O fluxo natural de desmontagem é:
+- **Não inspeciona uses downstream** do `RegistryKey` em `bootstrap/http/handlers.go` ou em `cmd/http/routes/declarable.go`. O fluxo natural de desmontagem é:
   ```
   scaffold service unregister <Domain> <Verb>
   scaffold service delete <Domain> <Verb>
@@ -295,7 +295,7 @@ go run ./cmd/scaffold derive schema Widget --remove
 
 ### Pré-condições
 
-- `bootstrap/services.go` existe e contém a função `registerServices(reg *registry.Registry)`.
+- `bootstrap/http/services.go` existe e contém a função `registerServices(reg *registry.Registry)`.
 
 ## `service delete` — apaga o pacote do verbo
 
@@ -307,7 +307,7 @@ Valida em ordem (falha sem mutar disco na primeira falha):
 
 1. **Domain e Verb** são PascalCase exportáveis.
 2. **Pasta existe** (`os.Stat`). Mensagem: `service <relDir> não existe`.
-3. **Wire-up ausente em `bootstrap/services.go`**:
+3. **Wire-up ausente em `bootstrap/http/services.go`**:
    - Bootstrap **ausente** → segue (paridade com `service create`: o repo pode não ter bootstrap ainda).
    - Bootstrap **presente sem `registerServices`** → segue (não há wire-up possível).
    - **Import** do verbo presente → falha orientando a rodar `scaffold service unregister` antes.
@@ -328,7 +328,7 @@ A ordem das guardas é proposital: pasta → wire-up → handler. Pasta primeiro
 
 ## `repository register` — wire-up no DI
 
-`scaffold repository register <Domain>` patcha `bootstrap/repositories.go` via AST adicionando:
+`scaffold repository register <Domain>` patcha `bootstrap/http/repositories.go` via AST adicionando:
 
 1. **Import** do pacote do repositório com alias fixo `<snake_domain sem underscores>repo`:
    ```go
@@ -345,16 +345,16 @@ A ordem das guardas é proposital: pasta → wire-up → handler. Pasta primeiro
 ### Idempotência
 
 - Falha se o import OU a linha de `Provide` já existirem.
-- Sem mutação parcial: se qualquer validação falha, `bootstrap/repositories.go` permanece byte-a-byte igual ao estado anterior.
+- Sem mutação parcial: se qualquer validação falha, `bootstrap/http/repositories.go` permanece byte-a-byte igual ao estado anterior.
 
 ### Pré-condições
 
 - O repositório existe (`internal/repositories/<snake_domain>/<snake_domain>.go` com `const RegistryKey` + `func New<Domain>Repository`). Rode antes: `scaffold repository create <Domain>` e adicione `RegistryKey` manualmente (o constructor não emite a constante automaticamente).
-- `bootstrap/repositories.go` existe e contém a função `registerRepositories(reg *registry.Registry)`.
+- `bootstrap/http/repositories.go` existe e contém a função `registerRepositories(reg *registry.Registry)`.
 
 ## `repository unregister` — desfaz a ligação no DI
 
-`scaffold repository unregister <Domain>` edita `bootstrap/repositories.go` via AST removendo o que `repository register` adicionou:
+`scaffold repository unregister <Domain>` edita `bootstrap/http/repositories.go` via AST removendo o que `repository register` adicionou:
 
 1. **Import** com alias `<snake_domain sem underscores>repo` apontando pra `zord/internal/repositories/<snake_domain>`.
 2. **Linha** `reg.Provide(<alias>.RegistryKey, _)` em `registerRepositories`.
@@ -364,13 +364,13 @@ O segundo argumento de `reg.Provide` é ignorado na busca — funciona mesmo ap�
 ### Idempotência
 
 - Falha se o import OU a linha de `Provide` não existirem.
-- Sem mutação parcial: se qualquer validação falha, `bootstrap/repositories.go` permanece byte-a-byte igual ao estado anterior.
+- Sem mutação parcial: se qualquer validação falha, `bootstrap/http/repositories.go` permanece byte-a-byte igual ao estado anterior.
 - Re-executar após sucesso anterior sempre falha (import e linha de `Provide` já foram removidos).
 
 ### O que NÃO faz
 
 - **Não apaga o pacote** do repositório em `internal/repositories/<snake_domain>/` — só desconecta do DI. Apagar é responsabilidade do dev (`rm -rf`).
-- **Não inspeciona uses downstream** do `RegistryKey` (`bootstrap/services.go` etc.). Fluxo natural:
+- **Não inspeciona uses downstream** do `RegistryKey` (`bootstrap/http/services.go` etc.). Fluxo natural:
 
   ```
   scaffold repository unregister <Domain>
@@ -382,7 +382,7 @@ O segundo argumento de `reg.Provide` é ignorado na busca — funciona mesmo ap�
 
 ### Pré-condições
 
-- `bootstrap/repositories.go` existe e contém a função `registerRepositories(reg *registry.Registry)`.
+- `bootstrap/http/repositories.go` existe e contém a função `registerRepositories(reg *registry.Registry)`.
 - **Não exige** o pacote do repositório existir no disco — o dev pode ter apagado antes.
 
 ## `repository delete` — apaga a pasta do repository
@@ -392,7 +392,7 @@ O segundo argumento de `reg.Provide` é ignorado na busca — funciona mesmo ap�
 ### Pré-condições
 
 - A pasta `internal/repositories/<snake_domain>/` existe.
-- Não há wire-up residual em `bootstrap/repositories.go`. Quando o arquivo de bootstrap existe e contém `registerRepositories`, o comando procura via AST o `ImportSpec` do pacote (`zord/internal/repositories/<snake_domain>`) e a chamada `reg.Provide(<alias>.RegistryKey, ...)`. Se ambos presentes, falha com mensagem apontando `scaffold repository unregister <Domain>`. Usa o alias REAL do `ImportSpec` — robusto contra aliases encurtados à mão (mesma estratégia do `repository unregister`, NAVE-89).
+- Não há wire-up residual em `bootstrap/http/repositories.go`. Quando o arquivo de bootstrap existe e contém `registerRepositories`, o comando procura via AST o `ImportSpec` do pacote (`zord/internal/repositories/<snake_domain>`) e a chamada `reg.Provide(<alias>.RegistryKey, ...)`. Se ambos presentes, falha com mensagem apontando `scaffold repository unregister <Domain>`. Usa o alias REAL do `ImportSpec` — robusto contra aliases encurtados à mão (mesma estratégia do `repository unregister`, NAVE-89).
 
 Bootstrap ausente, função `registerRepositories` ausente, import ausente OU `Provide` ausente — todos significam "sem wire-up residual", e o delete prossegue. Não há pra onde apontar; o estado já é consistente.
 
@@ -408,7 +408,7 @@ Rodar **apenas** `repository delete` com wire-up residual falha e preserva a pas
 
 ### Não inspeciona services downstream
 
-O comando não varre `bootstrap/services.go` nem o resto do tree procurando uses do `RegistryKey`. O compile error após o delete é o guia. Mesma postura de `service unregister` (NAVE-88) e `repository unregister` (NAVE-89).
+O comando não varre `bootstrap/http/services.go` nem o resto do tree procurando uses do `RegistryKey`. O compile error após o delete é o guia. Mesma postura de `service unregister` (NAVE-88) e `repository unregister` (NAVE-89).
 
 ### Sem `--force`
 
@@ -416,7 +416,7 @@ Decisão upfront: nada de bypass. Se quiser apagar com wire-up residual, use `rm
 
 ## `handler register` — wire-up no DI
 
-`scaffold handler register <Domain> <Service>` patcha `bootstrap/handlers.go` via AST adicionando:
+`scaffold handler register <Domain> <Service>` patcha `bootstrap/http/handlers.go` via AST adicionando:
 
 1. **Import** do pacote do handler com alias uniforme `<snake_domain sem _><snake_service sem _>handler`:
    ```go
@@ -433,16 +433,16 @@ Decisão upfront: nada de bypass. Se quiser apagar com wire-up residual, use `rm
 ### Idempotência
 
 - Falha se o import OU a linha de `Provide` já existirem.
-- Sem mutação parcial: se qualquer validação falha, `bootstrap/handlers.go` permanece byte-a-byte igual ao estado anterior.
+- Sem mutação parcial: se qualquer validação falha, `bootstrap/http/handlers.go` permanece byte-a-byte igual ao estado anterior.
 
 ### Pré-condições
 
 - O handler existe (`cmd/http/handlers/<snake_domain>/<snake_service>/handler.go` com `const RegistryKey` + `func New<Service>Handler`). Rode antes: `scaffold handler create <Domain> <Service>`.
-- `bootstrap/handlers.go` existe e contém a função `registerHandlers(reg *registry.Registry)`.
+- `bootstrap/http/handlers.go` existe e contém a função `registerHandlers(reg *registry.Registry)`.
 
 ## `handler unregister` — desfaz a ligação no DI
 
-`scaffold handler unregister <Domain> <Service>` edita `bootstrap/handlers.go` via AST removendo o que `handler register` adicionou:
+`scaffold handler unregister <Domain> <Service>` edita `bootstrap/http/handlers.go` via AST removendo o que `handler register` adicionou:
 
 1. **Import** do pacote do handler (`"zord/cmd/http/handlers/<snake_domain>/<snake_service>"`) com alias uniforme `<snake_domain sem _><snake_service sem _>handler`.
    - Sem detecção dual de formato: NAVE-73 estabelece o alias por construção, então o lookup é direto. Se o import existir com outro alias (handler legado fora do shape 1:1), o comando falha por ausência — comportamento correto, handlers legados não são alvo.
@@ -455,7 +455,7 @@ Decisão upfront: nada de bypass. Se quiser apagar com wire-up residual, use `rm
 ### Idempotência
 
 - Falha se o import OU a linha de `Provide` não existirem.
-- Sem mutação parcial: se qualquer validação falha, `bootstrap/handlers.go` permanece byte-a-byte igual ao estado anterior.
+- Sem mutação parcial: se qualquer validação falha, `bootstrap/http/handlers.go` permanece byte-a-byte igual ao estado anterior.
 - Re-executar após sucesso anterior sempre falha (import e linha de `Provide` já foram removidos).
 
 ### O que NÃO faz
@@ -472,7 +472,7 @@ Decisão upfront: nada de bypass. Se quiser apagar com wire-up residual, use `rm
 
 ### Pré-condições
 
-- `bootstrap/handlers.go` existe e contém a função `registerHandlers(reg *registry.Registry)`.
+- `bootstrap/http/handlers.go` existe e contém a função `registerHandlers(reg *registry.Registry)`.
 
 ## `handler delete` — apaga a pasta do handler
 
@@ -480,7 +480,7 @@ Decisão upfront: nada de bypass. Se quiser apagar com wire-up residual, use `rm
 
 1. `Domain` e `Service` são PascalCase exportáveis.
 2. A pasta do handler existe.
-3. Sem wire-up residual em `bootstrap/handlers.go`: nem `import` do pacote do handler, nem linha `reg.Provide(<alias>.RegistryKey, ...)` em `registerHandlers`. Bootstrap ausente conta como OK; bootstrap presente sem `registerHandlers` também conta como OK.
+3. Sem wire-up residual em `bootstrap/http/handlers.go`: nem `import` do pacote do handler, nem linha `reg.Provide(<alias>.RegistryKey, ...)` em `registerHandlers`. Bootstrap ausente conta como OK; bootstrap presente sem `registerHandlers` também conta como OK.
 4. Sem rota residual em `cmd/http/routes/<snake_domain>.go`: nem campo `<lowerCamel>Handler` na struct da Route, nem `import` do pacote do handler, nem chamada `r.<lowerCamel>Handler.Handle` em `DeclarePrivateRoutes` / `DeclarePublicRoutes`. Route file ausente conta como OK.
 
 Ordem das guardas: pasta → wire-up → rota. Pasta primeiro porque é a invariante mais barata e dá a mensagem mais útil ("nada pra apagar"). Wire-up antes da rota porque `Resolve` em runtime panica, enquanto rota residual quebra build.
@@ -837,7 +837,7 @@ func (h *<Pascal>Handler) Handle(c echo.Context) error {
   `New<Pascal>Handler` e armazena o service tipado em `h.svc`. Custo zero
   por request, struct auto-documentada (campos tipados explícitos), falha
   rápida no boot se algum service estiver ausente do registry. A ordem
-  topológica em `bootstrap/setup.go` (`pkg → repositories → services →
+  topológica em `bootstrap/http/setup.go` (`pkg → repositories → services →
   handlers`) já garante segurança.
 - **Sem DTOs locais.** O handler binda direto em `<service>.Input` e devolve `out`
   do `Execute` direto via `c.JSON`. O service é a fonte única do shape do
@@ -854,7 +854,7 @@ func (h *<Pascal>Handler) Handle(c echo.Context) error {
   domains escolhe o domain "principal" — decisão do dev, não do scaffold.
 - **Constructor signature inalterada entre NAVE-70 e NAVE-77.**
   `New<Pascal>Handler(reg *registry.Registry) *<Pascal>Handler` segue
-  idêntico — só o body muda. Wire-up em `bootstrap/handlers.go` (NAVE-73)
+  idêntico — só o body muda. Wire-up em `bootstrap/http/handlers.go` (NAVE-73)
   funciona independente desta fatia.
 
 ### Limitações conhecidas (fatia 5)

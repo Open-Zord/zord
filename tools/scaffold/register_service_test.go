@@ -19,7 +19,7 @@ func TestRegisterService_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RegisterService: %v", err)
 	}
-	if want := filepath.Join("bootstrap", "services.go"); rel != want {
+	if want := filepath.Join("bootstrap", "http", "services.go"); rel != want {
 		t.Errorf("path: got %q, want %q", rel, want)
 	}
 	got := readFile(t, filepath.Join(root, rel))
@@ -39,7 +39,7 @@ func TestRegisterService_HappyPath_CompoundVerb(t *testing.T) {
 	if _, err := RegisterService(RegisterServiceOptions{Root: root, Domain: "Auth", Verb: "SelectOrg"}); err != nil {
 		t.Fatalf("RegisterService: %v", err)
 	}
-	got := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	mustContain(t, got,
 		`"zord/internal/application/services/auth/select_org"`,
 		"reg.Provide(select_org.RegistryKey, select_org.NewService(log, idC))",
@@ -94,7 +94,7 @@ func TestRegisterService_AppliesAliasOnCollision(t *testing.T) {
 	if _, err := RegisterService(RegisterServiceOptions{Root: root, Domain: "Billing", Verb: "Create"}); err != nil {
 		t.Fatalf("segundo RegisterService: %v", err)
 	}
-	got := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	mustContain(t, got,
 		`"zord/internal/application/services/org/create"`,
 		`billing_create "zord/internal/application/services/billing/create"`,
@@ -137,13 +137,13 @@ func TestRegisterService_DoesNotMutateOnFailure(t *testing.T) {
 	if _, err := RegisterService(RegisterServiceOptions{Root: root, Domain: "Auth", Verb: "Login"}); err != nil {
 		t.Fatalf("primeiro RegisterService: %v", err)
 	}
-	before := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	before := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 
 	// Re-registra (deve falhar por idempotência) — arquivo não pode mudar.
 	if _, err := RegisterService(RegisterServiceOptions{Root: root, Domain: "Auth", Verb: "Login"}); err == nil {
 		t.Fatalf("segundo RegisterService: esperado erro, got nil")
 	}
-	after := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	after := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	if before != after {
 		t.Fatalf("arquivo mutado após falha:\n--- before ---\n%s\n--- after ---\n%s", before, after)
 	}
@@ -153,7 +153,7 @@ func TestRegisterService_FailsIfBootstrapMissing(t *testing.T) {
 	root := t.TempDir()
 	seedDomain(t, root, "Auth")
 	seedService(t, root, "Auth", "Login")
-	// bootstrap/services.go ausente
+	// bootstrap/http/services.go ausente
 
 	_, err := RegisterService(RegisterServiceOptions{Root: root, Domain: "Auth", Verb: "Login"})
 	if err == nil {
@@ -165,13 +165,13 @@ func TestRegisterService_FailsIfRegisterFuncMissing(t *testing.T) {
 	root := t.TempDir()
 	seedDomain(t, root, "Auth")
 	seedService(t, root, "Auth", "Login")
-	relFile := filepath.Join("bootstrap", "services.go")
+	relFile := filepath.Join("bootstrap", "http", "services.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	// bootstrap/services.go sem a função registerServices
-	src := `package bootstrap
+	// bootstrap/http/services.go sem a função registerServices
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -192,15 +192,15 @@ func TestRegisterService_FailsIfProvideCallAlreadyPresent(t *testing.T) {
 	root := t.TempDir()
 	seedDomain(t, root, "Auth")
 	seedService(t, root, "Auth", "Login")
-	// bootstrap/services.go pré-populado com a linha de Provide mas SEM o
+	// bootstrap/http/services.go pré-populado com a linha de Provide mas SEM o
 	// import — caso patológico para garantir que a checagem de Provide funciona
 	// independentemente do estado do bloco de imports.
-	relFile := filepath.Join("bootstrap", "services.go")
+	relFile := filepath.Join("bootstrap", "http", "services.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -223,17 +223,17 @@ func registerServices(reg *registry.Registry) {
 
 // --- seeding helpers (compartilhados com testes futuros do pacote register) ---
 
-// seedBootstrapServices grava um `bootstrap/services.go` mínimo: a função
+// seedBootstrapServices grava um `bootstrap/http/services.go` mínimo: a função
 // `registerServices(reg *registry.Registry)` com corpo vazio. É o esqueleto
 // canônico que `service register` espera encontrar.
 func seedBootstrapServices(t *testing.T, root string) {
 	t.Helper()
-	relFile := filepath.Join("bootstrap", "services.go")
+	relFile := filepath.Join("bootstrap", "http", "services.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -241,7 +241,7 @@ func registerServices(reg *registry.Registry) {
 }
 `
 	if err := os.WriteFile(absFile, []byte(src), 0o600); err != nil {
-		t.Fatalf("seed bootstrap/services.go: %v", err)
+		t.Fatalf("seed bootstrap/http/services.go: %v", err)
 	}
 }
 

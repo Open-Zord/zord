@@ -19,7 +19,7 @@ func TestRegisterHandler_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RegisterHandler: %v", err)
 	}
-	if want := filepath.Join("bootstrap", "handlers.go"); rel != want {
+	if want := filepath.Join("bootstrap", "http", "handlers.go"); rel != want {
 		t.Errorf("path: got %q, want %q", rel, want)
 	}
 	got := readFile(t, filepath.Join(root, rel))
@@ -40,7 +40,7 @@ func TestRegisterHandler_HappyPath_CompoundDomain(t *testing.T) {
 	if _, err := RegisterHandler(RegisterHandlerOptions{Root: root, Domain: "UsageRecord", Service: "Export"}); err != nil {
 		t.Fatalf("RegisterHandler: %v", err)
 	}
-	got := readFile(t, filepath.Join(root, "bootstrap", "handlers.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "handlers.go"))
 	mustContain(t, got,
 		`usagerecordexporthandler "zord/cmd/http/handlers/usage_record/export"`,
 		"reg.Provide(usagerecordexporthandler.RegistryKey, usagerecordexporthandler.NewExportHandler(reg))",
@@ -58,7 +58,7 @@ func TestRegisterHandler_HappyPath_CompoundService(t *testing.T) {
 	if _, err := RegisterHandler(RegisterHandlerOptions{Root: root, Domain: "Org", Service: "CreateMembership"}); err != nil {
 		t.Fatalf("RegisterHandler: %v", err)
 	}
-	got := readFile(t, filepath.Join(root, "bootstrap", "handlers.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "handlers.go"))
 	mustContain(t, got,
 		`orgcreatemembershiphandler "zord/cmd/http/handlers/org/create_membership"`,
 		"reg.Provide(orgcreatemembershiphandler.RegistryKey, orgcreatemembershiphandler.NewCreateMembershipHandler(reg))",
@@ -126,15 +126,15 @@ func TestRegisterHandler_FailsIfProvideCallAlreadyPresent(t *testing.T) {
 	seedDomain(t, root, "Auth")
 	seedService(t, root, "Auth", "Login")
 	seedHandler(t, root, "Auth", "Login")
-	// bootstrap/handlers.go pré-populado com a linha de Provide mas SEM o
+	// bootstrap/http/handlers.go pré-populado com a linha de Provide mas SEM o
 	// import — caso patológico pra garantir que a checagem de Provide funciona
 	// independentemente do estado do bloco de imports.
-	relFile := filepath.Join("bootstrap", "handlers.go")
+	relFile := filepath.Join("bootstrap", "http", "handlers.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -198,7 +198,7 @@ func TestRegisterHandler_FailsIfBootstrapMissing(t *testing.T) {
 	seedDomain(t, root, "Auth")
 	seedService(t, root, "Auth", "Login")
 	seedHandler(t, root, "Auth", "Login")
-	// bootstrap/handlers.go ausente
+	// bootstrap/http/handlers.go ausente
 
 	_, err := RegisterHandler(RegisterHandlerOptions{Root: root, Domain: "Auth", Service: "Login"})
 	if err == nil {
@@ -211,12 +211,12 @@ func TestRegisterHandler_FailsIfRegisterFuncMissing(t *testing.T) {
 	seedDomain(t, root, "Auth")
 	seedService(t, root, "Auth", "Login")
 	seedHandler(t, root, "Auth", "Login")
-	relFile := filepath.Join("bootstrap", "handlers.go")
+	relFile := filepath.Join("bootstrap", "http", "handlers.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -243,12 +243,12 @@ func TestRegisterHandler_DoesNotMutateOnFailure(t *testing.T) {
 	if _, err := RegisterHandler(RegisterHandlerOptions{Root: root, Domain: "Auth", Service: "Login"}); err != nil {
 		t.Fatalf("primeiro RegisterHandler: %v", err)
 	}
-	before := readFile(t, filepath.Join(root, "bootstrap", "handlers.go"))
+	before := readFile(t, filepath.Join(root, "bootstrap", "http", "handlers.go"))
 
 	if _, err := RegisterHandler(RegisterHandlerOptions{Root: root, Domain: "Auth", Service: "Login"}); err == nil {
 		t.Fatalf("segundo RegisterHandler: esperado erro, got nil")
 	}
-	after := readFile(t, filepath.Join(root, "bootstrap", "handlers.go"))
+	after := readFile(t, filepath.Join(root, "bootstrap", "http", "handlers.go"))
 	if before != after {
 		t.Fatalf("arquivo mutado após falha:\n--- before ---\n%s\n--- after ---\n%s", before, after)
 	}
@@ -321,16 +321,16 @@ type %sHandler struct {
 	}
 }
 
-// seedBootstrapHandlers grava um `bootstrap/handlers.go` mínimo: a função
+// seedBootstrapHandlers grava um `bootstrap/http/handlers.go` mínimo: a função
 // `registerHandlers(reg *registry.Registry)` com corpo vazio.
 func seedBootstrapHandlers(t *testing.T, root string) {
 	t.Helper()
-	relFile := filepath.Join("bootstrap", "handlers.go")
+	relFile := filepath.Join("bootstrap", "http", "handlers.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -338,6 +338,6 @@ func registerHandlers(reg *registry.Registry) {
 }
 `
 	if err := os.WriteFile(absFile, []byte(src), 0o600); err != nil {
-		t.Fatalf("seed bootstrap/handlers.go: %v", err)
+		t.Fatalf("seed bootstrap/http/handlers.go: %v", err)
 	}
 }

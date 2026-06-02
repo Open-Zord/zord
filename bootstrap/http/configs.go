@@ -1,4 +1,4 @@
-package bootstrap
+package http
 
 import (
 	"github.com/Open-Zord/zord/pkg/config"

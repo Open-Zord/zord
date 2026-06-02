@@ -60,7 +60,7 @@ func TestServiceDelete_HappyPath_BootstrapPresentNoWireUp(t *testing.T) {
 		t.Errorf("pasta ainda existe após delete")
 	}
 	// Bootstrap intacto.
-	got := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	mustContain(t, got, "func registerServices(reg *registry.Registry)")
 }
 
@@ -68,11 +68,11 @@ func TestServiceDelete_HappyPath_BootstrapSemRegisterFunc(t *testing.T) {
 	root := t.TempDir()
 	seedServiceWithoutBootstrap(t, root, "Auth", "Login")
 	// Bootstrap presente mas sem `registerServices` — não há wire-up possível.
-	absFile := filepath.Join(root, "bootstrap", "services.go")
+	absFile := filepath.Join(root, "bootstrap", "http", "services.go")
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -110,7 +110,7 @@ func TestServiceDelete_FailsIfImportStillPresent(t *testing.T) {
 		t.Fatalf("RegisterService: %v", err)
 	}
 
-	before := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	before := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	_, err := ServiceDelete(ServiceDeleteOptions{Root: root, Domain: "Auth", Verb: "Login"})
 	if err == nil {
 		t.Fatalf("esperado erro pra wire-up vivo, got nil")
@@ -123,7 +123,7 @@ func TestServiceDelete_FailsIfImportStillPresent(t *testing.T) {
 		t.Errorf("pasta foi apagada apesar do erro: %v", statErr)
 	}
 	// Bootstrap intocado.
-	after := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	after := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	if before != after {
 		t.Errorf("bootstrap mutado em falha:\n%s", after)
 	}
@@ -135,11 +135,11 @@ func TestServiceDelete_FailsIfProvideStillPresentWithoutImport(t *testing.T) {
 	root := t.TempDir()
 	seedDomain(t, root, "Auth")
 	seedService(t, root, "Auth", "Login")
-	absFile := filepath.Join(root, "bootstrap", "services.go")
+	absFile := filepath.Join(root, "bootstrap", "http", "services.go")
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -209,7 +209,7 @@ func TestServiceDelete_SucceedsWhenColidingBasenameImportStaysAlive(t *testing.T
 	}
 	// Sanidade: bootstrap ainda tem o bare create do Org, e o alias do Billing
 	// sumiu.
-	bootstrap := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	bootstrap := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	mustContain(t, bootstrap,
 		`"zord/internal/application/services/org/create"`,
 		"reg.Provide(create.RegistryKey, create.NewService(log, idC))",
@@ -236,7 +236,7 @@ func TestServiceDelete_SucceedsWhenColidingBasenameImportStaysAlive(t *testing.T
 		t.Errorf("pasta org/create foi tocada: %v", statErr)
 	}
 	// Bootstrap continua referenciando o Org.
-	after := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	after := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	mustContain(t, after,
 		`"zord/internal/application/services/org/create"`,
 		"reg.Provide(create.RegistryKey, create.NewService(log, idC))",
@@ -261,7 +261,7 @@ func TestServiceDelete_StillFailsWhenColidingBasenameAndOwnWireUpAlive(t *testin
 		t.Fatalf("RegisterService Billing: %v", err)
 	}
 
-	before := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	before := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	_, err := ServiceDelete(ServiceDeleteOptions{Root: root, Domain: "Billing", Verb: "Create"})
 	if err == nil {
 		t.Fatalf("esperado erro pra wire-up vivo do Billing (alias billing_create), got nil")
@@ -274,7 +274,7 @@ func TestServiceDelete_StillFailsWhenColidingBasenameAndOwnWireUpAlive(t *testin
 		t.Errorf("pasta foi apagada apesar do erro: %v", statErr)
 	}
 	// Bootstrap intocado.
-	after := readFile(t, filepath.Join(root, "bootstrap", "services.go"))
+	after := readFile(t, filepath.Join(root, "bootstrap", "http", "services.go"))
 	if before != after {
 		t.Errorf("bootstrap mutado em falha")
 	}

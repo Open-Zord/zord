@@ -2,7 +2,7 @@
 // handler iniciado por `handler unregister` (NAVE-90). `handler delete`
 // (NAVE-98) apaga a pasta `cmd/http/handlers/<snake_domain>/<snake_service>/`
 // com guardas que recusam a operação enquanto o ecossistema do handler ainda
-// tem dependências vivas: wire-up em `bootstrap/handlers.go` ou rota em
+// tem dependências vivas: wire-up em `bootstrap/http/handlers.go` ou rota em
 // `cmd/http/routes/<snake_domain>.go`.
 package scaffold
 
@@ -30,7 +30,7 @@ type HandlerDeleteOptions struct {
 //
 //  1. Domain e Service são PascalCase exportáveis.
 //  2. A pasta do handler existe.
-//  3. Não há wire-up residual em `bootstrap/handlers.go` (import OU Provide).
+//  3. Não há wire-up residual em `bootstrap/http/handlers.go` (import OU Provide).
 //     Bootstrap ausente conta como OK; bootstrap presente sem
 //     `registerHandlers` também conta como OK (não há wire-up possível).
 //  4. Não há rota residual em `cmd/http/routes/<snake_domain>.go`: campo
@@ -74,14 +74,14 @@ func HandlerDelete(opts HandlerDeleteOptions) (string, error) {
 	return relDir, nil
 }
 
-// assertNoHandlerWireUp parseia `bootstrap/handlers.go` (se existir) e devolve
+// assertNoHandlerWireUp parseia `bootstrap/http/handlers.go` (se existir) e devolve
 // erro se ainda houver import OU linha de Provide associada ao handler.
 // Reusa `findImportSpec` e `findProvideStmt` definidos em
 // unregister_service.go (compartilhados pelo par register/unregister de
 // service e handler).
 //
 // Casos OK (retornam nil):
-//   - `bootstrap/handlers.go` ausente — repo ainda sem bootstrap.
+//   - `bootstrap/http/handlers.go` ausente — repo ainda sem bootstrap.
 //   - Arquivo presente mas sem `registerHandlers` — não há wire-up possível.
 //   - Arquivo presente, função presente, mas nem import nem Provide referem
 //     o handler.

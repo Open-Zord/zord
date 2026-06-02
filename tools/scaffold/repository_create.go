@@ -96,7 +96,7 @@ func RepositoryCreate(opts RepositoryCreateOptions) (string, error) {
 //
 // O const é obrigatório pra `scaffold repository register` conseguir
 // referenciar `<alias>.RegistryKey` no map central em
-// `bootstrap/repositories.go` (NAVE-106).
+// `bootstrap/http/repositories.go` (NAVE-106).
 func buildConcreteFile(domain string, imp importPaths) ([]byte, error) {
 	snake := ToSnake(domain)
 	pkg := snake + "_repository"

@@ -2,7 +2,7 @@ package main
 
 import (
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/Open-Zord/zord/bootstrap"
+	httpboot "github.com/Open-Zord/zord/bootstrap/http"
 	"github.com/Open-Zord/zord/cmd/http/server"
 )
 
@@ -10,7 +10,7 @@ import (
 // @version 1.0
 // @description This is the Zord backend server.
 func main() {
-	reg, apiPrefix := bootstrap.Setup()
+	reg, apiPrefix := httpboot.Setup()
 	serverInstance := server.NewServer(reg, apiPrefix)
 	serverInstance.Start()
 }

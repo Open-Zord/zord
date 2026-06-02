@@ -45,11 +45,11 @@ func seedMinimalConformingRepo(t *testing.T) string {
 	// go.mod mínimo (alguns fluxos lêem o module path; inofensivo se não).
 	writeFileTree(t, root, map[string]string{
 		"go.mod": "module zord\n\ngo 1.22\n",
-		// bootstrap: configs/pkg/setup planos; services/repositories/handlers
+		// bootstrap/http: configs/pkg/setup planos; services/repositories/handlers
 		// vêm dos seeders abaixo (precisam do shape que os register editam).
-		"bootstrap/configs.go": "package bootstrap\n",
-		"bootstrap/pkg.go":     "package bootstrap\n",
-		"bootstrap/setup.go":   "package bootstrap\n",
+		"bootstrap/http/configs.go": "package http\n",
+		"bootstrap/http/pkg.go":     "package http\n",
+		"bootstrap/http/setup.go":   "package http\n",
 		// routes: health.go (rota sem domínio, allowlist) + declarable.go.
 		"cmd/http/routes/health.go": "package routes\n\nfunc NewHealthRoute() Declarable { return nil }\n",
 	})

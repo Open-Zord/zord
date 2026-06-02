@@ -70,15 +70,15 @@ marcadas com `DestructiveHint=true` nas annotations MCP.
 | `scaffold_repository_delete`    | ⚠ Remove `internal/repositories/<snake>/` (falha se ainda registrado)    |
 | `scaffold_repository_port`      | Adiciona port + métodos no arquivo do domínio                            |
 | `scaffold_repository_unport`    | Remove port + métodos do arquivo do domínio (inverso de `_port`)         |
-| `scaffold_repository_register`  | Registra repository no DI (`bootstrap/repository.go`)                    |
+| `scaffold_repository_register`  | Registra repository no DI (`bootstrap/http/repositories.go`)             |
 | `scaffold_repository_unregister`| Desregistra repository do DI (inverso de `_register`)                    |
 | `scaffold_service_create`       | Gera `internal/application/services/<d>/<v>/service.go`                  |
 | `scaffold_service_delete`       | ⚠ Remove pasta do service (falha se ainda registrado)                    |
-| `scaffold_service_register`     | Registra service no DI (`bootstrap/service.go`)                          |
+| `scaffold_service_register`     | Registra service no DI (`bootstrap/http/services.go`)                    |
 | `scaffold_service_unregister`   | Desregistra service do DI (inverso de `_register`)                       |
 | `scaffold_handler_create`       | Gera `cmd/http/handlers/<d>/<v>/handler.go` (eager registry.Resolve)     |
 | `scaffold_handler_delete`       | ⚠ Remove pasta do handler (falha se ainda registrado)                    |
-| `scaffold_handler_register`     | Registra handler no DI (`bootstrap/handler.go`)                          |
+| `scaffold_handler_register`     | Registra handler no DI (`bootstrap/http/handlers.go`)                    |
 | `scaffold_handler_unregister`   | Desregistra handler do DI (inverso de `_register`)                       |
 | `scaffold_route_create`         | Gera `cmd/http/routes/<snake>.go` (struct + constructor)                 |
 | `scaffold_route_delete`         | ⚠ Remove `cmd/http/routes/<snake>.go` (falha se ainda registrado)        |
@@ -102,7 +102,7 @@ inexistente devolve `Resource not found`.
 
 ## Lock cross-process
 
-Os handlers que tocam arquivos compartilhados (bootstrap/*, declarable.go,
+Os handlers que tocam arquivos compartilhados (bootstrap/http/*, declarable.go,
 schema HCL, pasta do próprio domain via domain_delete que valida deps no
 schemas/) pegam `flock(LOCK_EX)` em `<repo>/.scaffold/lock` antes de chamar
 o scaffold:

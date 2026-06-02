@@ -1,8 +1,9 @@
-// Package bootstrap assembles the full application dependency graph in
-// pkg/registry and returns the ready-to-use registry for the HTTP server. It is
-// the single authorized wiring point of the project — cmd, internal and pkg do
-// not construct dependencies outside of here.
-package bootstrap
+// Package http assembles the full application dependency graph in
+// pkg/registry and returns the ready-to-use registry for the HTTP server. It
+// is the single authorized wiring point of the HTTP entrypoint — cmd, internal
+// and pkg do not construct dependencies outside of here. Other entrypoints
+// (CLI, MCP, etc.) live in sibling subpackages of bootstrap/.
+package http
 
 import (
 	"github.com/Open-Zord/zord/pkg/registry"

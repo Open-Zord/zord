@@ -22,7 +22,7 @@ func registerForUnregisterRepository(t *testing.T, root, domain string) {
 func TestUnregisterRepository_HappyPath(t *testing.T) {
 	root := t.TempDir()
 	registerForUnregisterRepository(t, root, "Organization")
-	before := readFile(t, filepath.Join(root, "bootstrap", "repositories.go"))
+	before := readFile(t, filepath.Join(root, "bootstrap", "http", "repositories.go"))
 	if !strings.Contains(before, `organizationrepo "zord/internal/repositories/organization"`) {
 		t.Fatalf("pré-condição falhou: import organizationrepo ausente:\n%s", before)
 	}
@@ -31,7 +31,7 @@ func TestUnregisterRepository_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UnregisterRepository: %v", err)
 	}
-	if want := filepath.Join("bootstrap", "repositories.go"); rel != want {
+	if want := filepath.Join("bootstrap", "http", "repositories.go"); rel != want {
 		t.Errorf("path: got %q, want %q", rel, want)
 	}
 	got := readFile(t, filepath.Join(root, rel))
@@ -50,7 +50,7 @@ func TestUnregisterRepository_HappyPath_CompoundDomain(t *testing.T) {
 	if _, err := UnregisterRepository(UnregisterRepositoryOptions{Root: root, Domain: "OrgMembership"}); err != nil {
 		t.Fatalf("UnregisterRepository: %v", err)
 	}
-	got := readFile(t, filepath.Join(root, "bootstrap", "repositories.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "repositories.go"))
 	mustNotContain(t, got,
 		`orgmembershiprepo "zord/internal/repositories/org_membership"`,
 		"orgmembershiprepo.RegistryKey",
@@ -61,15 +61,15 @@ func TestUnregisterRepository_HappyPath_CompoundDomain(t *testing.T) {
 
 func TestUnregisterRepository_FailsIfImportMissing(t *testing.T) {
 	root := t.TempDir()
-	// bootstrap/repositories.go pré-populado com a linha de Provide mas SEM o
+	// bootstrap/http/repositories.go pré-populado com a linha de Provide mas SEM o
 	// import — caso patológico simétrico ao do register: garante que a
 	// validação do import roda antes da remoção do Provide.
-	relFile := filepath.Join("bootstrap", "repositories.go")
+	relFile := filepath.Join("bootstrap", "http", "repositories.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -96,13 +96,13 @@ func registerRepositories(reg *registry.Registry) {
 
 func TestUnregisterRepository_FailsIfProvideMissing(t *testing.T) {
 	root := t.TempDir()
-	// bootstrap/repositories.go com o import presente mas sem a linha de Provide.
-	relFile := filepath.Join("bootstrap", "repositories.go")
+	// bootstrap/http/repositories.go com o import presente mas sem a linha de Provide.
+	relFile := filepath.Join("bootstrap", "http", "repositories.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import (
 	organizationrepo "zord/internal/repositories/organization"
@@ -148,7 +148,7 @@ func TestUnregisterRepository_FailsIfBothMissing(t *testing.T) {
 
 func TestUnregisterRepository_FailsIfBootstrapMissing(t *testing.T) {
 	root := t.TempDir()
-	// bootstrap/repositories.go ausente.
+	// bootstrap/http/repositories.go ausente.
 
 	_, err := UnregisterRepository(UnregisterRepositoryOptions{Root: root, Domain: "Organization"})
 	if err == nil {
@@ -158,12 +158,12 @@ func TestUnregisterRepository_FailsIfBootstrapMissing(t *testing.T) {
 
 func TestUnregisterRepository_FailsIfRegisterFuncMissing(t *testing.T) {
 	root := t.TempDir()
-	relFile := filepath.Join("bootstrap", "repositories.go")
+	relFile := filepath.Join("bootstrap", "http", "repositories.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -206,12 +206,12 @@ func TestUnregisterRepository_IsIdempotentFailureAfterSuccess(t *testing.T) {
 	if _, err := UnregisterRepository(UnregisterRepositoryOptions{Root: root, Domain: "Organization"}); err != nil {
 		t.Fatalf("primeiro UnregisterRepository: %v", err)
 	}
-	afterFirst := readFile(t, filepath.Join(root, "bootstrap", "repositories.go"))
+	afterFirst := readFile(t, filepath.Join(root, "bootstrap", "http", "repositories.go"))
 
 	if _, err := UnregisterRepository(UnregisterRepositoryOptions{Root: root, Domain: "Organization"}); err == nil {
 		t.Fatalf("segundo UnregisterRepository: esperado erro, got nil")
 	}
-	afterSecond := readFile(t, filepath.Join(root, "bootstrap", "repositories.go"))
+	afterSecond := readFile(t, filepath.Join(root, "bootstrap", "http", "repositories.go"))
 	if afterFirst != afterSecond {
 		t.Fatalf("arquivo mutado em falha idempotente:\n--- depois do 1º ---\n%s\n--- depois do 2º ---\n%s", afterFirst, afterSecond)
 	}
@@ -233,7 +233,7 @@ func TestUnregisterRepository_PreservesSiblingProvides(t *testing.T) {
 	if _, err := UnregisterRepository(UnregisterRepositoryOptions{Root: root, Domain: "PlatformUser"}); err != nil {
 		t.Fatalf("UnregisterRepository PlatformUser: %v", err)
 	}
-	got := readFile(t, filepath.Join(root, "bootstrap", "repositories.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "repositories.go"))
 	// Organization intacto.
 	mustContain(t, got,
 		`organizationrepo "zord/internal/repositories/organization"`,
@@ -254,18 +254,18 @@ func TestUnregisterRepository_PreservesSiblingProvides(t *testing.T) {
 // branco residual entre o último stmt e o Rbrace após remoção do ExprStmt.
 //
 // Seed usa import já em forma grouped e um Provide pré-existente — bate com o
-// shape real de bootstrap/repositories.go. Seed bare (1 único import) + função
+// shape real de bootstrap/http/repositories.go. Seed bare (1 único import) + função
 // vazia escapa do invariante porque astutil.AddNamedImport converte bare em
 // grouped no primeiro insert, e essa transformação não é revertida no remove.
 func TestUnregisterRepository_RoundTripIsByteIdentical(t *testing.T) {
 	root := t.TempDir()
 	seedRepositoryFile(t, root, "Organization")
-	relFile := filepath.Join("bootstrap", "repositories.go")
+	relFile := filepath.Join("bootstrap", "http", "repositories.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import (
 	userrepo "zord/internal/repositories/platform_user"
@@ -296,16 +296,16 @@ func registerRepositories(reg *registry.Registry) {
 // TestUnregisterRepository_WorksWithShortenedAlias garante que o unregister
 // funciona contra arquivos legados onde o dev encurtou o alias à mão (ex.:
 // `orgrepo` em vez do `organizationrepo` default que NAVE-72 gera). O
-// `bootstrap/repositories.go` real do the target repo usa essas formas curtas,
+// `bootstrap/http/repositories.go` real do the target repo usa essas formas curtas,
 // então sem essa flexibilidade o comando não rodaria contra o codebase.
 func TestUnregisterRepository_WorksWithShortenedAlias(t *testing.T) {
 	root := t.TempDir()
-	relFile := filepath.Join("bootstrap", "repositories.go")
+	relFile := filepath.Join("bootstrap", "http", "repositories.go")
 	absFile := filepath.Join(root, relFile)
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import (
 	orgrepo "zord/internal/repositories/organization"
@@ -346,7 +346,7 @@ func TestUnregisterRepository_WorksWithoutPackageOnDisk(t *testing.T) {
 	if _, err := UnregisterRepository(UnregisterRepositoryOptions{Root: root, Domain: "Organization"}); err != nil {
 		t.Fatalf("UnregisterRepository: %v", err)
 	}
-	got := readFile(t, filepath.Join(root, "bootstrap", "repositories.go"))
+	got := readFile(t, filepath.Join(root, "bootstrap", "http", "repositories.go"))
 	mustNotContain(t, got,
 		`organizationrepo "zord/internal/repositories/organization"`,
 		"organizationrepo.RegistryKey",

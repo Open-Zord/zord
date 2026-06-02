@@ -29,7 +29,7 @@ type RegisterRepositoryOptions struct {
 	Domain string
 }
 
-// RegisterRepository patcha `bootstrap/repositories.go` adicionando o import do pacote
+// RegisterRepository patcha `bootstrap/http/repositories.go` adicionando o import do pacote
 // do repositório (com alias `<snake_domain sem underscores>repo`) e a chamada
 // `reg.Provide(<alias>.RegistryKey, <alias>.New<Pascal>Repository(db))` ao fim
 // da função `registerRepositories`.
@@ -39,12 +39,12 @@ type RegisterRepositoryOptions struct {
 //   - O arquivo do repositório existe
 //     (`internal/repositories/<snake_domain>/<snake_domain>.go`) e contém
 //     `const RegistryKey` + `func New<Pascal>Repository`.
-//   - `bootstrap/repositories.go` existe e contém a função
+//   - `bootstrap/http/repositories.go` existe e contém a função
 //     `registerRepositories(reg *registry.Registry)`.
 //   - O import e a linha de `Provide` ainda não existem (idempotente: re-rodar
 //     sempre falha).
 //
-// Retorna o caminho relativo do arquivo editado (`bootstrap/repositories.go`).
+// Retorna o caminho relativo do arquivo editado (`bootstrap/http/repositories.go`).
 func RegisterRepository(opts RegisterRepositoryOptions) (string, error) {
 	plan, err := planRepository(opts)
 	if err != nil {
@@ -111,7 +111,7 @@ func planRepository(opts RegisterRepositoryOptions) (repositoryPlan, error) {
 	}
 	plan.pascalDomain = opts.Domain
 	plan.snakeDomain = ToSnake(opts.Domain)
-	plan.relFile = filepath.Join(bootstrapBasePath, bootstrapRepositoriesFile)
+	plan.relFile = filepath.Join(bootstrapBasePath, bootstrapHTTPSubpath, bootstrapRepositoriesFile)
 	plan.absFile = filepath.Join(plan.root, plan.relFile)
 	plan.importPath = imp.join(repositoriesImportSubpath + "/" + plan.snakeDomain)
 	// Alias uniforme: <snake_domain sem underscores> + "repo". Casa com o

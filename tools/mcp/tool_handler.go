@@ -52,7 +52,7 @@ func registerHandler(s *mcpsdk.Server, repo string) {
 
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "scaffold_handler_register",
-		Description: "Edita bootstrap/handler.go registrando o handler no DI container.",
+		Description: "Edita bootstrap/http/handlers.go registrando o handler no DI container.",
 		Annotations: writingAnnotations("Scaffold: registrar handler no DI"),
 	}, func(_ context.Context, _ *mcpsdk.CallToolRequest, in handlerRegisterInput) (*mcpsdk.CallToolResult, CommonOutput, error) {
 		target, err := effectiveRepo(in.Repo, repo)
@@ -73,7 +73,7 @@ func registerHandler(s *mcpsdk.Server, repo string) {
 
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "scaffold_handler_unregister",
-		Description: "Edita bootstrap/handler.go desfazendo o registro do handler no DI (inverso de scaffold_handler_register).",
+		Description: "Edita bootstrap/http/handlers.go desfazendo o registro do handler no DI (inverso de scaffold_handler_register).",
 		Annotations: writingAnnotations("Scaffold: desregistrar handler do DI"),
 	}, func(_ context.Context, _ *mcpsdk.CallToolRequest, in handlerUnregisterInput) (*mcpsdk.CallToolResult, CommonOutput, error) {
 		target, err := effectiveRepo(in.Repo, repo)

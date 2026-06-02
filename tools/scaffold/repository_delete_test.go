@@ -46,7 +46,7 @@ func TestRepositoryDelete_HappyPath_CompoundDomain(t *testing.T) {
 }
 
 func TestRepositoryDelete_HappyPath_NoBootstrap(t *testing.T) {
-	// bootstrap/repositories.go ausente = sem wire-up residual. Delete prossegue.
+	// bootstrap/http/repositories.go ausente = sem wire-up residual. Delete prossegue.
 	root := t.TempDir()
 	seedRepositoryFile(t, root, "Organization")
 
@@ -59,11 +59,11 @@ func TestRepositoryDelete_HappyPath_BootstrapWithoutRegisterFunc(t *testing.T) {
 	// bootstrap presente mas sem registerRepositories — estado consistente.
 	root := t.TempDir()
 	seedRepositoryFile(t, root, "Organization")
-	absFile := filepath.Join(root, "bootstrap", "repositories.go")
+	absFile := filepath.Join(root, "bootstrap", "http", "repositories.go")
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import "zord/pkg/registry"
 
@@ -104,16 +104,16 @@ func TestRepositoryDelete_FailsIfWireUpResidual(t *testing.T) {
 }
 
 func TestRepositoryDelete_FailsIfWireUpResidual_ShortenedAlias(t *testing.T) {
-	// Caso real: bootstrap/repositories.go com alias encurtado à mão.
+	// Caso real: bootstrap/http/repositories.go com alias encurtado à mão.
 	// findImportSpec pelo importPath ainda casa, e importIdent retorna o
 	// alias real — a mensagem aponta o RegistryKey com esse alias.
 	root := t.TempDir()
 	seedRepositoryFile(t, root, "Organization")
-	absFile := filepath.Join(root, "bootstrap", "repositories.go")
+	absFile := filepath.Join(root, "bootstrap", "http", "repositories.go")
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import (
 	orgrepo "zord/internal/repositories/organization"
@@ -157,11 +157,11 @@ func TestRepositoryDelete_AllowsResidualImportWithoutProvide(t *testing.T) {
 	// ou o goimports faz isso na próxima edição.
 	root := t.TempDir()
 	seedRepositoryFile(t, root, "Organization")
-	absFile := filepath.Join(root, "bootstrap", "repositories.go")
+	absFile := filepath.Join(root, "bootstrap", "http", "repositories.go")
 	if err := os.MkdirAll(filepath.Dir(absFile), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	src := `package bootstrap
+	src := `package http
 
 import (
 	organizationrepo "zord/internal/repositories/organization"
