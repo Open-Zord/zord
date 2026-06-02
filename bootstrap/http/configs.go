@@ -10,7 +10,7 @@ import (
 // in pkg.go through the *config.Config instance itself.
 func loadConfigs() (conf *config.Config, apiPrefix string) {
 	conf = config.NewConfig()
-	if err := conf.LoadEnvs(); err != nil {
+	if err := conf.LoadEnvsForEntrypoint("http"); err != nil {
 		panic(err)
 	}
 	apiPrefix = conf.ReadConfig("API_PREFIX")

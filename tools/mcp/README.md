@@ -50,7 +50,7 @@ O override é validado a cada chamada (path existe, é diretório, tem
 chamada, não o do startup — duas worktrees podem rodar scaffold em
 paralelo sem disputar flock.
 
-## Tools (30)
+## Tools (31)
 
 Todas devolvem `CommonOutput {created, modified, deleted?, diff?, warnings?}`,
 exceto `arch_analyze` (output próprio). Tools destrutivas (5 `*_delete`) são
@@ -59,6 +59,7 @@ marcadas com `DestructiveHint=true` nas annotations MCP.
 | Tool                            | Descrição                                                                 |
 |---------------------------------|---------------------------------------------------------------------------|
 | `scaffold_entrypoint_create`    | Cria casca de novo entrypoint: `bootstrap/<name>/setup.go` + `cmd/<name>/main.go` |
+| `scaffold_queue_create`         | Cria worker de fila (driver omniq): 6 arquivos em `bootstrap/<name>/` + `cmd/<name>/main.go` |
 | `scaffold_domain_create`        | Gera `internal/application/domain/<snake>/<snake>.go`                    |
 | `scaffold_domain_delete`        | ⚠ Remove `internal/application/domain/<snake>/` (falha com deps)         |
 | `scaffold_field_add`            | Adiciona campo à struct de domínio (tags db/json/validate canônicas)     |

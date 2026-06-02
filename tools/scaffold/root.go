@@ -12,6 +12,7 @@ func NewRootCmd() *cobra.Command {
 		SilenceErrors: true,
 	}
 	root.AddCommand(newEntrypointCmd())
+	root.AddCommand(newQueueCmd())
 	root.AddCommand(newDomainCmd())
 	root.AddCommand(newFieldCmd())
 	root.AddCommand(newDeriveCmd())

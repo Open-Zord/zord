@@ -73,7 +73,7 @@ func (m *Migrator) Generate(_ *cobra.Command, args []string) {
 
 func (m *Migrator) BootMigrator(_ *cobra.Command, _ []string) {
 	conf := config.NewConfig()
-	err := conf.LoadEnvs()
+	err := conf.LoadEnvsForEntrypoint("cli")
 	if err != nil {
 		panic(err)
 	}

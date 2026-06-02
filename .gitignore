@@ -1,3 +1,7 @@
+# .env wins sobre .env.<entrypoint> e fica local-only (creds reais de homolog).
+# Os .env.<entrypoint> (.env.http, .env.cli, .env.<queue>) SÃO versionados:
+# servem de defaults de dev local. Não há padrão "ignora .env.*" — match
+# literal só pega o nome exato ".env".
 .env
 .idea
 storage
