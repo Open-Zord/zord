@@ -5,6 +5,18 @@ import (
 	"testing"
 )
 
+// httpSetupSrc é o conteúdo mínimo de bootstrap/http/setup.go com marcador
+// declarado — atende o requisito de //zord:entrypoint que o validador agora
+// exige em todo entrypoint.
+const httpSetupSrc = "//zord:entrypoint http\npackage http\n"
+
+// queueWorkerSetupSrc espelha httpSetupSrc pro tipo queue_worker.
+const queueWorkerSetupSrc = "//zord:entrypoint queue_worker\npackage worker\n"
+
+// skeletonSetupSrc cobre o tipo skeleton (esqueleto mínimo gerado por
+// `scaffold entrypoint create`).
+const skeletonSetupSrc = "//zord:entrypoint skeleton\npackage cli\n"
+
 // bootstrapOK monta o conjunto fechado de bootstrap/http/ esperado pelo
 // scaffold. bootstrap/ é índice de entrypoints — http/ é o único entrypoint
 // hoje; cli/, mcp/ etc. virão como subpacotes irmãos.
@@ -15,7 +27,7 @@ func bootstrapOK() map[string]string {
 		"bootstrap/http/pkg.go":          "package http\n",
 		"bootstrap/http/repositories.go": "package http\n",
 		"bootstrap/http/services.go":     "package http\n",
-		"bootstrap/http/setup.go":        "package http\n",
+		"bootstrap/http/setup.go":        httpSetupSrc,
 	}
 }
 
@@ -58,15 +70,101 @@ func TestValidateScaffoldLayout_Bootstrap_ArquivoSoltoNaRaiz(t *testing.T) {
 
 func TestValidateScaffoldLayout_Bootstrap_NovoEntrypointPermitido(t *testing.T) {
 	// Multi-entrypoint (NAVE-159, prep monorepo): qualquer subpacote sob
-	// bootstrap/ é entrypoint legítimo. Closed-set só existe pra http/. Aqui
-	// um cli/ "vazio" (só setup.go, equivalente ao que `scaffold entrypoint
-	// create` gera) precisa passar — o validador não deve fingir conhecer a
-	// estrutura final dos entrypoints futuros.
+	// bootstrap/ é entrypoint legítimo, desde que declare seu tipo via
+	// marcador `//zord:entrypoint <type>`. Aqui um cli/ esqueleto (só setup.go,
+	// equivalente ao que `scaffold entrypoint create` gera) precisa passar
+	// sob o tipo `skeleton`.
 	files := bootstrapOK()
-	files["bootstrap/cli/setup.go"] = "package cli\n"
+	files["bootstrap/cli/setup.go"] = skeletonSetupSrc
 	root := setupFakeRepo(t, files)
 	if err := ValidateScaffoldLayout(root); err != nil {
 		t.Fatalf("novo entrypoint em bootstrap/cli/ deveria passar, mas reprovou: %v", err)
+	}
+}
+
+func TestValidateScaffoldLayout_Bootstrap_QueueWorker_OK(t *testing.T) {
+	files := bootstrapOK()
+	files["bootstrap/billing_worker/setup.go"] = queueWorkerSetupSrc
+	files["bootstrap/billing_worker/configs.go"] = "package billing_worker\n"
+	files["bootstrap/billing_worker/pkg.go"] = "package billing_worker\n"
+	files["bootstrap/billing_worker/repositories.go"] = "package billing_worker\n"
+	files["bootstrap/billing_worker/services.go"] = "package billing_worker\n"
+	files["bootstrap/billing_worker/worker.go"] = "package billing_worker\n"
+	root := setupFakeRepo(t, files)
+	if err := ValidateScaffoldLayout(root); err != nil {
+		t.Fatalf("queue_worker conforme deveria passar, mas reprovou: %v", err)
+	}
+}
+
+func TestValidateScaffoldLayout_Bootstrap_QueueWorker_ArquivoHTTPProibido(t *testing.T) {
+	files := bootstrapOK()
+	files["bootstrap/billing_worker/setup.go"] = queueWorkerSetupSrc
+	files["bootstrap/billing_worker/configs.go"] = "package billing_worker\n"
+	files["bootstrap/billing_worker/pkg.go"] = "package billing_worker\n"
+	files["bootstrap/billing_worker/repositories.go"] = "package billing_worker\n"
+	files["bootstrap/billing_worker/services.go"] = "package billing_worker\n"
+	files["bootstrap/billing_worker/worker.go"] = "package billing_worker\n"
+	// handlers.go é http-only; em queue_worker é violação.
+	files["bootstrap/billing_worker/handlers.go"] = "package billing_worker\n"
+	root := setupFakeRepo(t, files)
+	err := ValidateScaffoldLayout(root)
+	if err == nil || !strings.Contains(err.Error(), "bootstrap/billing_worker/handlers.go") {
+		t.Fatalf("esperava violação de handlers.go em queue_worker: %v", err)
+	}
+}
+
+func TestValidateScaffoldLayout_Bootstrap_MarcadorAusente(t *testing.T) {
+	files := bootstrapOK()
+	// Substitui http setup.go por um sem marcador.
+	files["bootstrap/http/setup.go"] = "package http\n"
+	root := setupFakeRepo(t, files)
+	err := ValidateScaffoldLayout(root)
+	if err == nil || !strings.Contains(err.Error(), "sem marcador //zord:entrypoint") {
+		t.Fatalf("esperava violação de marcador ausente: %v", err)
+	}
+}
+
+func TestValidateScaffoldLayout_Bootstrap_TipoDesconhecido(t *testing.T) {
+	files := bootstrapOK()
+	files["bootstrap/grpc/setup.go"] = "//zord:entrypoint grpc\npackage grpc\n"
+	root := setupFakeRepo(t, files)
+	err := ValidateScaffoldLayout(root)
+	if err == nil || !strings.Contains(err.Error(), "tipo de entrypoint desconhecido") {
+		t.Fatalf("esperava violação de tipo desconhecido: %v", err)
+	}
+	if !strings.Contains(err.Error(), `"grpc"`) {
+		t.Fatalf("erro deveria citar o tipo desconhecido: %v", err)
+	}
+}
+
+func TestValidateScaffoldLayout_Bootstrap_SetupAusente(t *testing.T) {
+	files := bootstrapOK()
+	// Entrypoint sem setup.go — só um arquivo qualquer.
+	files["bootstrap/orphan/pkg.go"] = "package orphan\n"
+	root := setupFakeRepo(t, files)
+	err := ValidateScaffoldLayout(root)
+	if err == nil || !strings.Contains(err.Error(), "bootstrap/orphan/ sem setup.go") {
+		t.Fatalf("esperava violação de setup.go ausente: %v", err)
+	}
+}
+
+func TestValidateScaffoldLayout_Bootstrap_MarcadorSemArgumento(t *testing.T) {
+	files := bootstrapOK()
+	files["bootstrap/http/setup.go"] = "//zord:entrypoint\npackage http\n"
+	root := setupFakeRepo(t, files)
+	err := ValidateScaffoldLayout(root)
+	if err == nil || !strings.Contains(err.Error(), "marcador sem argumento") {
+		t.Fatalf("esperava violação de marcador sem argumento: %v", err)
+	}
+}
+
+func TestValidateScaffoldLayout_Bootstrap_MarcadorDuplicado(t *testing.T) {
+	files := bootstrapOK()
+	files["bootstrap/http/setup.go"] = "//zord:entrypoint http\n//zord:entrypoint queue_worker\npackage http\n"
+	root := setupFakeRepo(t, files)
+	err := ValidateScaffoldLayout(root)
+	if err == nil || !strings.Contains(err.Error(), "marcador duplicado") {
+		t.Fatalf("esperava violação de marcador duplicado: %v", err)
 	}
 }
 

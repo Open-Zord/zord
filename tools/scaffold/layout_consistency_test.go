@@ -47,9 +47,11 @@ func seedMinimalConformingRepo(t *testing.T) string {
 		"go.mod": "module zord\n\ngo 1.22\n",
 		// bootstrap/http: configs/pkg/setup planos; services/repositories/handlers
 		// vêm dos seeders abaixo (precisam do shape que os register editam).
+		// setup.go carrega o marcador //zord:entrypoint http exigido pelo
+		// analyser (fonte de verdade do tipo do entrypoint).
 		"bootstrap/http/configs.go": "package http\n",
 		"bootstrap/http/pkg.go":     "package http\n",
-		"bootstrap/http/setup.go":   "package http\n",
+		"bootstrap/http/setup.go":   "//zord:entrypoint http\npackage http\n",
 		// routes: health.go (rota sem domínio, allowlist) + declarable.go.
 		"cmd/http/routes/health.go": "package routes\n\nfunc NewHealthRoute() Declarable { return nil }\n",
 	})
@@ -154,6 +156,24 @@ func TestScaffoldLayoutConsistency_ViolacoesInjetadasReprovam(t *testing.T) {
 			t.Fatalf("esperava reprovação de 2º gate de aplicação: %v", err)
 		}
 	})
+}
+
+// TestScaffoldLayoutConsistency_QueueWorkerPassa garante que o esqueleto que
+// QueueCreate gera passa no ValidateScaffoldLayout — a contrapartida da
+// invariante "scaffold ↔ analyser sempre em sincronia" pra entrypoints de
+// fila. Espelha o teste HTTP acima: TempDir + scaffold + assert PASS.
+//
+// Se o closed-set de queue_worker no analyser divergir do shape gerado
+// (ex.: scaffold adiciona um 7º arquivo sem registrar lá), este teste pega
+// na hora.
+func TestScaffoldLayoutConsistency_QueueWorkerPassa(t *testing.T) {
+	root := seedMinimalConformingRepo(t)
+	if _, err := QueueCreate(QueueCreateOptions{Root: root, Name: "billing_worker"}); err != nil {
+		t.Fatalf("QueueCreate: %v", err)
+	}
+	if err := arch.ValidateScaffoldLayout(root); err != nil {
+		t.Fatalf("queue worker gerado deveria PASSAR no analyser, mas reprovou:\n%v", err)
+	}
 }
 
 // sanity: o helper de cleanup explícito não é necessário (t.TempDir limpa), mas

@@ -18,6 +18,8 @@ package arch_analyser
 
 import (
 	"fmt"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"sort"
@@ -30,19 +32,44 @@ import (
 // (decisão: não criar pacote "layout" compartilhado).
 // ---------------------------------------------------------------------------
 
-// bootstrapHTTPAllowedFiles é o conjunto fechado de arquivos de
-// bootstrap/http/. Nada novo entra sem virar violação. http/ é hoje o único
-// entrypoint com closed-set fixo; os demais (cli, grpc, redis_queue, etc.)
-// passam livres até que seus scaffolds específicos amadureçam e ganhem seu
-// próprio closed-set aqui.
-var bootstrapHTTPAllowedFiles = map[string]struct{}{
-	"configs.go":      {},
-	"handlers.go":     {},
-	"pkg.go":          {},
-	"repositories.go": {},
-	"services.go":     {},
-	"setup.go":        {},
+// bootstrapAllowedByType mapeia cada tipo de entrypoint declarado no marcador
+// `//zord:entrypoint <type>` (no package doc do setup.go) pro seu conjunto
+// fechado de arquivos. Cada entrypoint sob bootstrap/ é identificado pelo seu
+// próprio marcador — não há detecção heurística por nome de arquivo. Adicionar
+// um novo tipo: criar a entrada aqui + emitir o marcador no scaffold.
+//
+//   - http: full-stack HTTP server (handlers.go + trio padrão).
+//   - queue_worker: consumer de fila (worker.go no lugar de handlers.go).
+//   - skeleton: esqueleto mínimo gerado por `scaffold entrypoint create`,
+//     só setup.go. Quem evoluir pra HTTP/queue muda o marcador (ou regenera
+//     via scaffold tipado).
+var bootstrapAllowedByType = map[string]map[string]struct{}{
+	"http": {
+		"configs.go":      {},
+		"handlers.go":     {},
+		"pkg.go":          {},
+		"repositories.go": {},
+		"services.go":     {},
+		"setup.go":        {},
+	},
+	"queue_worker": {
+		"configs.go":      {},
+		"pkg.go":          {},
+		"repositories.go": {},
+		"services.go":     {},
+		"setup.go":        {},
+		"worker.go":       {},
+	},
+	"skeleton": {
+		"setup.go": {},
+	},
 }
+
+// entrypointMarkerPrefix é o prefixo da diretiva que declara o tipo do
+// entrypoint no package doc do setup.go. Formato canônico:
+// `//zord:entrypoint <type>` (sem espaço entre `//` e `zord:`, espelhando
+// `//go:build`/`//go:generate`).
+const entrypointMarkerPrefix = "//zord:entrypoint"
 
 // routesAllowedExtraFiles são os arquivos de cmd/http/routes/ que não seguem o
 // shape <domain>.go: o agregador declarable.go e a rota sem domínio health.go.
@@ -112,18 +139,20 @@ func ValidateScaffoldLayout(root string) error {
 
 // checkBootstrap valida bootstrap/ como índice de entrypoints. A regra é
 // multi-entrypoint por construção (NAVE-159, prep monorepo): qualquer pasta
-// sob bootstrap/ é um entrypoint legítimo — o nome do pacote é livre porque
-// novos entrypoints (cli, grpc, redis_queue, k8s operator, ...) entram via
-// `scaffold entrypoint create <name>`. O que o validador exige aqui:
+// sob bootstrap/ é um entrypoint legítimo, mas todo entrypoint precisa
+// declarar seu TIPO via marcador `//zord:entrypoint <type>` no package doc
+// do setup.go. O tipo determina o conjunto fechado de arquivos permitidos
+// (ver bootstrapAllowedByType). Sem heurística de detecção — marcador
+// explícito é a única fonte de verdade.
+//
+// Regras enforced:
 //
 //   - sem arquivos .go soltos na raiz de bootstrap/ (cada entrypoint vive em
-//     seu próprio subpacote, sem código compartilhado top-level);
-//   - bootstrap/http/ tem closed-set fixo (full-stack entrypoint canônico —
-//     ver bootstrapHTTPAllowedFiles).
-//
-// Demais entrypoints não têm closed-set por enquanto: o shape específico
-// (handlers, services, workers, etc.) é responsabilidade do scaffold
-// específico daquele tipo, ainda não implementado.
+//     seu próprio subpacote);
+//   - cada subpacote precisa ter setup.go;
+//   - setup.go precisa declarar `//zord:entrypoint <type>` no package doc;
+//   - <type> precisa estar registrado em bootstrapAllowedByType;
+//   - arquivos do entrypoint precisam estar no closed-set do tipo declarado.
 func (c *layoutChecker) checkBootstrap() {
 	dir := filepath.Join(c.root, "bootstrap")
 	entries, err := os.ReadDir(dir)
@@ -133,6 +162,7 @@ func (c *layoutChecker) checkBootstrap() {
 	for _, e := range entries {
 		full := filepath.Join(dir, e.Name())
 		if e.IsDir() {
+			c.checkBootstrapEntrypoint(e.Name(), full)
 			continue
 		}
 		if !strings.HasSuffix(e.Name(), ".go") {
@@ -143,13 +173,93 @@ func (c *layoutChecker) checkBootstrap() {
 		}
 		c.add(full, "bootstrap", "arquivo solto na raiz de bootstrap/ — cada entrypoint vive em seu próprio subpacote (ex.: bootstrap/http/)")
 	}
-	c.checkBootstrapEntry("http", bootstrapHTTPAllowedFiles)
+}
+
+// checkBootstrapEntrypoint resolve o tipo do entrypoint via marcador no
+// setup.go e aplica o closed-set correspondente. Falhas comuns (setup.go
+// ausente, marcador faltando, tipo desconhecido) viram violação dedicada
+// pra dar mensagem acionável ao dev.
+func (c *layoutChecker) checkBootstrapEntrypoint(name, dir string) {
+	setupPath := filepath.Join(dir, "setup.go")
+	if _, err := os.Stat(setupPath); err != nil {
+		c.add(dir, "bootstrap",
+			fmt.Sprintf("entrypoint bootstrap/%s/ sem setup.go — marcador //zord:entrypoint <type> precisa morar nele", name))
+		return
+	}
+	typ, err := readEntrypointMarker(setupPath)
+	if err != nil {
+		c.add(setupPath, "bootstrap",
+			fmt.Sprintf("setup.go sem marcador //zord:entrypoint válido: %v (tipos suportados: %s)", err, supportedEntrypointTypes()))
+		return
+	}
+	allowed, ok := bootstrapAllowedByType[typ]
+	if !ok {
+		c.add(setupPath, "bootstrap",
+			fmt.Sprintf("tipo de entrypoint desconhecido: %q (suportados: %s)", typ, supportedEntrypointTypes()))
+		return
+	}
+	c.checkBootstrapEntry(name, typ, allowed)
+}
+
+// supportedEntrypointTypes devolve os tipos registrados em ordem alfabética
+// pra mensagens de erro estáveis.
+func supportedEntrypointTypes() string {
+	names := make([]string, 0, len(bootstrapAllowedByType))
+	for t := range bootstrapAllowedByType {
+		names = append(names, t)
+	}
+	sort.Strings(names)
+	return strings.Join(names, ", ")
+}
+
+// readEntrypointMarker extrai o tipo declarado no package doc do setup.go.
+// Espera exatamente uma linha `//zord:entrypoint <type>` (sem espaço entre
+// `//` e `zord:`, espelhando `//go:build`). Retorna erro se ausente,
+// duplicado ou malformado (sem o argumento <type>).
+func readEntrypointMarker(setupPath string) (string, error) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, setupPath, nil, parser.PackageClauseOnly|parser.ParseComments)
+	if err != nil {
+		return "", fmt.Errorf("parse: %w", err)
+	}
+	if f.Doc == nil {
+		return "", fmt.Errorf("package doc ausente")
+	}
+	var found string
+	for _, cmt := range f.Doc.List {
+		for line := range strings.SplitSeq(cmt.Text, "\n") {
+			line = strings.TrimRight(line, " \t\r")
+			if !strings.HasPrefix(line, entrypointMarkerPrefix) {
+				continue
+			}
+			rest := strings.TrimPrefix(line, entrypointMarkerPrefix)
+			// Exige espaço entre a diretiva e o argumento (ex.: `//zord:entrypoint http`).
+			// Sem isso vira falso positivo de prefixo (ex.: `//zord:entrypointable`).
+			if rest == "" || (rest[0] != ' ' && rest[0] != '\t') {
+				return "", fmt.Errorf("marcador sem argumento: %q", line)
+			}
+			typ := strings.TrimSpace(rest)
+			if typ == "" {
+				return "", fmt.Errorf("marcador sem argumento: %q", line)
+			}
+			if found != "" {
+				return "", fmt.Errorf("marcador duplicado (já visto: %q, agora: %q)", found, typ)
+			}
+			found = typ
+		}
+	}
+	if found == "" {
+		return "", fmt.Errorf("marcador //zord:entrypoint <type> ausente no package doc")
+	}
+	return found, nil
 }
 
 // checkBootstrapEntry valida um subpacote de entrypoint de bootstrap/ contra
 // o conjunto fechado de arquivos esperado. Subdiretórios não são permitidos
-// dentro do entrypoint (cada entrypoint é um pacote plano).
-func (c *layoutChecker) checkBootstrapEntry(name string, allowed map[string]struct{}) {
+// dentro do entrypoint (cada entrypoint é um pacote plano). A mensagem cita
+// o tipo declarado e os arquivos permitidos pra ele — útil quando entrypoints
+// de tipos diferentes coexistem no repo.
+func (c *layoutChecker) checkBootstrapEntry(name, typ string, allowed map[string]struct{}) {
 	dir := filepath.Join(c.root, "bootstrap", name)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -168,9 +278,22 @@ func (c *layoutChecker) checkBootstrapEntry(name string, allowed map[string]stru
 			continue
 		}
 		if _, ok := allowed[e.Name()]; !ok {
-			c.add(full, "bootstrap", fmt.Sprintf("arquivo fora do conjunto fechado de bootstrap/%s/ (configs/handlers/pkg/repositories/services/setup)", name))
+			c.add(full, "bootstrap",
+				fmt.Sprintf("arquivo fora do conjunto fechado de bootstrap/%s/ (tipo %q permite: %s)",
+					name, typ, sortedKeys(allowed)))
 		}
 	}
+}
+
+// sortedKeys devolve as chaves do set em ordem alfabética, separadas por
+// vírgula. Saída estável pra mensagens de erro determinísticas.
+func sortedKeys(m map[string]struct{}) string {
+	names := make([]string, 0, len(m))
+	for k := range m {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	return strings.Join(names, ", ")
 }
 
 // checkHandlers valida cmd/http/handlers/ no shape estrito do scaffold:

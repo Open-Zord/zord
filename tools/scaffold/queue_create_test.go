@@ -40,6 +40,7 @@ func TestQueueCreate_HappyPath_Simple(t *testing.T) {
 	// setup.go: package + Setup + Run + omniq import + queueName from configs
 	setup := readFile(t, filepath.Join(root, "bootstrap", "worker", "setup.go"))
 	mustContain(t, setup,
+		"//zord:entrypoint queue_worker",
 		"package worker",
 		`"zord/pkg/registry"`,
 		`"github.com/not-empty/omniq-go"`,

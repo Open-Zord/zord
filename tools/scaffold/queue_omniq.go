@@ -143,7 +143,9 @@ func buildOmniqSetupFile(name string, imp importPaths) ([]byte, error) {
 			"// exposes Run() to drive the consume loop. Layout mirrors bootstrap/http/:\n"+
 			"// configs.go loads envs, pkg.go registers primitives (logger, db, omniq\n"+
 			"// client), repositories.go and services.go are entrypoint-agnostic wire-up,\n"+
-			"// worker.go bridges omniq jobs to services via NewHandler(reg).", name))
+			"// worker.go bridges omniq jobs to services via NewHandler(reg).\n"+
+			"//\n"+
+			"//zord:entrypoint queue_worker", name))
 
 	packageDoc.List[0].Slash = padder.Take()
 	packagePos := padder.Take()

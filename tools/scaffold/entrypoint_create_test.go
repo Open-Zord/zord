@@ -26,6 +26,7 @@ func TestEntrypointCreate_HappyPath_Simple(t *testing.T) {
 	gotBoot := readFile(t, filepath.Join(root, bp))
 	mustContain(t, gotBoot,
 		"// Package cli wires the cli entrypoint dependencies into pkg/registry.",
+		"//zord:entrypoint skeleton",
 		"package cli",
 		`"zord/pkg/registry"`,
 		"func Setup() *registry.Registry {",
