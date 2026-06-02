@@ -73,3 +73,44 @@ func IsValidExportedIdent(s string) bool {
 	}
 	return true
 }
+
+// goKeywords é o conjunto fechado de palavras reservadas da linguagem Go
+// (spec §Keywords). Identificadores de pacote — entre eles o nome de um
+// entrypoint — não podem coincidir com keywords.
+var goKeywords = map[string]struct{}{
+	"break": {}, "case": {}, "chan": {}, "const": {}, "continue": {},
+	"default": {}, "defer": {}, "else": {}, "fallthrough": {}, "for": {},
+	"func": {}, "go": {}, "goto": {}, "if": {}, "import": {},
+	"interface": {}, "map": {}, "package": {}, "range": {}, "return": {},
+	"select": {}, "struct": {}, "switch": {}, "type": {}, "var": {},
+}
+
+// IsValidPackageIdent valida que s é um identificador Go válido em
+// lower_snake_case, apropriado pra ser usado como nome de pacote: começa com
+// letra minúscula, segue com letras minúsculas, dígitos ou underscore, e não
+// coincide com keyword da linguagem. É o validador usado pra nomes de
+// entrypoint (`bootstrap/<name>/`, `cmd/<name>/`).
+func IsValidPackageIdent(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i, r := range s {
+		if i == 0 {
+			if r < 'a' || r > 'z' {
+				return false
+			}
+			continue
+		}
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= '0' && r <= '9':
+		case r == '_':
+		default:
+			return false
+		}
+	}
+	if _, ok := goKeywords[s]; ok {
+		return false
+	}
+	return true
+}

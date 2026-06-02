@@ -31,8 +31,10 @@ import (
 // ---------------------------------------------------------------------------
 
 // bootstrapHTTPAllowedFiles é o conjunto fechado de arquivos de
-// bootstrap/http/. Nada novo entra sem virar violação. Os demais entrypoints
-// (cli, mcp, etc.) terão suas próprias allowlists em subpacotes irmãos.
+// bootstrap/http/. Nada novo entra sem virar violação. http/ é hoje o único
+// entrypoint com closed-set fixo; os demais (cli, grpc, redis_queue, etc.)
+// passam livres até que seus scaffolds específicos amadureçam e ganhem seu
+// próprio closed-set aqui.
 var bootstrapHTTPAllowedFiles = map[string]struct{}{
 	"configs.go":      {},
 	"handlers.go":     {},
@@ -40,14 +42,6 @@ var bootstrapHTTPAllowedFiles = map[string]struct{}{
 	"repositories.go": {},
 	"services.go":     {},
 	"setup.go":        {},
-}
-
-// bootstrapAllowedSubdirs lista as pastas permitidas diretamente sob
-// bootstrap/: uma por entrypoint do monorepo. Mantém bootstrap/ como índice de
-// entrypoints — qualquer arquivo solto na raiz ou subdir fora dessa lista é
-// violação.
-var bootstrapAllowedSubdirs = map[string]struct{}{
-	"http": {},
 }
 
 // routesAllowedExtraFiles são os arquivos de cmd/http/routes/ que não seguem o
@@ -116,11 +110,20 @@ func ValidateScaffoldLayout(root string) error {
 		len(c.violations), strings.Join(lines, "\n"))
 }
 
-// checkBootstrap valida bootstrap/ como índice de entrypoints (cada um em seu
-// subpacote) e cada subpacote conhecido contra o conjunto fechado de
-// arquivos. bootstrap/ não pode ter arquivos soltos: arquivo .go direto na
-// raiz é violação. Subdiretório fora da allowlist (hoje apenas http/) também
-// é violação. Cada entrypoint conhecido é validado por checkBootstrapEntry.
+// checkBootstrap valida bootstrap/ como índice de entrypoints. A regra é
+// multi-entrypoint por construção (NAVE-159, prep monorepo): qualquer pasta
+// sob bootstrap/ é um entrypoint legítimo — o nome do pacote é livre porque
+// novos entrypoints (cli, grpc, redis_queue, k8s operator, ...) entram via
+// `scaffold entrypoint create <name>`. O que o validador exige aqui:
+//
+//   - sem arquivos .go soltos na raiz de bootstrap/ (cada entrypoint vive em
+//     seu próprio subpacote, sem código compartilhado top-level);
+//   - bootstrap/http/ tem closed-set fixo (full-stack entrypoint canônico —
+//     ver bootstrapHTTPAllowedFiles).
+//
+// Demais entrypoints não têm closed-set por enquanto: o shape específico
+// (handlers, services, workers, etc.) é responsabilidade do scaffold
+// específico daquele tipo, ainda não implementado.
 func (c *layoutChecker) checkBootstrap() {
 	dir := filepath.Join(c.root, "bootstrap")
 	entries, err := os.ReadDir(dir)
@@ -130,9 +133,6 @@ func (c *layoutChecker) checkBootstrap() {
 	for _, e := range entries {
 		full := filepath.Join(dir, e.Name())
 		if e.IsDir() {
-			if _, ok := bootstrapAllowedSubdirs[e.Name()]; !ok {
-				c.add(full, "bootstrap", "subdiretório fora da allowlist de entrypoints em bootstrap/ (hoje só http/)")
-			}
 			continue
 		}
 		if !strings.HasSuffix(e.Name(), ".go") {

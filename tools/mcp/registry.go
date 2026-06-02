@@ -4,7 +4,7 @@ import (
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// registerTools registra todas as 20 tools MCP no servidor. O `repo` é o path
+// registerTools registra todas as tools MCP no servidor. O `repo` é o path
 // absoluto do repo alvo, propagado pra cada handler como `Root` das
 // Options das funções do scaffold (e como `root` do arch_analyser).
 //
@@ -12,7 +12,13 @@ import (
 // mais tools via mcpsdk.AddTool[In, Out]. As assinaturas de In/Out são
 // específicas por tool; o schema JSON é inferido automaticamente das tags
 // jsonschema:"..." pelo SDK.
+//
+// `entrypoint` cria a casca cmd/<name>/ + bootstrap/<name>/ do monorepo
+// multi-entrypoint — é a operação top-level que precede qualquer scaffold de
+// camada (domain/repository/service/handler/route hoje só editam o entrypoint
+// http, que é o full-stack canônico).
 func registerTools(s *mcpsdk.Server, repo string) {
+	registerEntrypoint(s, repo)
 	registerDomain(s, repo)
 	registerField(s, repo)
 	registerDerive(s, repo)
