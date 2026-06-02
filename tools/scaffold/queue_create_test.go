@@ -92,7 +92,7 @@ func TestQueueCreate_HappyPath_Simple(t *testing.T) {
 	mustContain(t, worker,
 		"package worker",
 		`"github.com/not-empty/omniq-go"`,
-		"func NewHandler(reg *registry.Registry) omniq.ConsumeHandler",
+		"func NewHandler(reg *registry.Registry) func(ctx omniq.JobCtx)",
 		"return func(ctx omniq.JobCtx)",
 	)
 

@@ -638,7 +638,13 @@ func buildQueueWorkerFile(name string, imp importPaths) ([]byte, error) {
 	returnClosure := ReturnStmt(handlerLit)
 
 	params := FieldList(Field("reg", StarOf(Sel("registry", "Registry"))))
-	results := FieldList(AnonField(Sel("omniq", "ConsumeHandler")))
+	// omniq-go não re-exporta o type alias ConsumeHandler do pacote internal,
+	// então declara o function type inline. ConsumeOpts.Handler é assignável
+	// a `func(omniq.JobCtx)` por equivalência estrutural.
+	handlerResultType := &ast.FuncType{
+		Params: FieldList(Field("ctx", Sel("omniq", "JobCtx"))),
+	}
+	results := FieldList(AnonField(handlerResultType))
 	fn := FuncDecl(nil, "NewHandler", params, results, []ast.Stmt{discardAssign, returnClosure})
 	fn.Doc = singleComment(
 		"// NewHandler constrói o ConsumeHandler do worker. Resolva services/repos do\n" +
