@@ -26,6 +26,7 @@ func TestQueueCreate_HappyPath_Simple(t *testing.T) {
 		filepath.Join("bootstrap", "worker", "services.go"),
 		filepath.Join("bootstrap", "worker", "worker.go"),
 		filepath.Join("cmd", "worker", "main.go"),
+		".env.worker",
 	}
 	if len(files) != len(wantPaths) {
 		t.Fatalf("paths count: got %d %v, want %d %v", len(files), files, len(wantPaths), wantPaths)
@@ -49,25 +50,27 @@ func TestQueueCreate_HappyPath_Simple(t *testing.T) {
 		"Handler: NewHandler(reg)",
 	)
 
-	// configs.go: loadConfigs + OMNIQ_QUEUE
+	// configs.go: envPrefix const + LoadEnvsForEntrypoint + queueName via prefixo
 	configs := readFile(t, filepath.Join(root, "bootstrap", "worker", "configs.go"))
 	mustContain(t, configs,
 		"package worker",
 		`"zord/pkg/config"`,
+		`const envPrefix = "OMNIQ_WORKER"`,
 		"func loadConfigs() (conf *config.Config, queueName string)",
-		`conf.ReadConfig("OMNIQ_QUEUE")`,
+		`conf.LoadEnvsForEntrypoint("worker")`,
+		`conf.ReadConfig(envPrefix + "_QUEUE")`,
 	)
 
-	// pkg.go: registerPkg + omniq client construction
+	// pkg.go: registerPkg + omniq client com envs prefixados
 	pkg := readFile(t, filepath.Join(root, "bootstrap", "worker", "pkg.go"))
 	mustContain(t, pkg,
 		"package worker",
 		`"github.com/not-empty/omniq-go"`,
 		"func registerPkg(reg *registry.Registry, conf *config.Config)",
 		"client, err := omniq.NewClient(omniq.ClientOpts{",
-		`conf.ReadConfig("OMNIQ_HOST")`,
-		`conf.ReadNumberConfig("OMNIQ_PORT")`,
-		`conf.ReadNumberConfig("OMNIQ_DB")`,
+		`conf.ReadConfig(envPrefix + "_HOST")`,
+		`conf.ReadNumberConfig(envPrefix + "_PORT")`,
+		`conf.ReadNumberConfig(envPrefix + "_DB")`,
 		"reg.Provide(omniqClientRegistryKey, client)",
 	)
 
@@ -105,8 +108,22 @@ func TestQueueCreate_HappyPath_Simple(t *testing.T) {
 		`log.Fatalf("queue worker: %v", err)`,
 	)
 
-	// All files must parse.
+	// .env.worker: banner + 4 envs prefixados com OMNIQ_WORKER_*
+	dotEnv := readFile(t, filepath.Join(root, ".env.worker"))
+	mustContain(t, dotEnv,
+		"# .env.worker — config DE DEV LOCAL pra o entrypoint worker",
+		"# >>> NÃO COLOQUE CREDENCIAIS REAIS AQUI. <<<",
+		"OMNIQ_WORKER_HOST=localhost",
+		"OMNIQ_WORKER_PORT=6379",
+		"OMNIQ_WORKER_DB=0",
+		"OMNIQ_WORKER_QUEUE=worker",
+	)
+
+	// Os 7 arquivos .go precisam parsear; .env não é Go, pula.
 	for _, rel := range wantPaths {
+		if strings.HasPrefix(rel, ".env") {
+			continue
+		}
 		body := readFile(t, filepath.Join(root, rel))
 		if err := parseGoSrc([]byte(body)); err != nil {
 			t.Fatalf("arquivo %s não compila no parser: %v\n%s", rel, err, body)
@@ -124,7 +141,7 @@ func TestQueueCreate_SnakeCaseName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("QueueCreate: %v", err)
 	}
-	if len(files) != 7 {
+	if len(files) != 8 {
 		t.Fatalf("paths count: got %d %v", len(files), files)
 	}
 
@@ -137,6 +154,19 @@ func TestQueueCreate_SnakeCaseName(t *testing.T) {
 	mustContain(t, main,
 		`billingworkerboot "zord/bootstrap/billing_worker"`,
 		"billingworkerboot.Run()",
+	)
+
+	// envPrefix em UPPER_SNAKE_CASE (preserva underscore); .env.<name>
+	// referencia OMNIQ_BILLING_WORKER_*.
+	configs := readFile(t, filepath.Join(root, "bootstrap", "billing_worker", "configs.go"))
+	mustContain(t, configs,
+		`const envPrefix = "OMNIQ_BILLING_WORKER"`,
+		`conf.LoadEnvsForEntrypoint("billing_worker")`,
+	)
+	dotEnv := readFile(t, filepath.Join(root, ".env.billing_worker"))
+	mustContain(t, dotEnv,
+		"OMNIQ_BILLING_WORKER_HOST=localhost",
+		"OMNIQ_BILLING_WORKER_QUEUE=billing_worker",
 	)
 }
 

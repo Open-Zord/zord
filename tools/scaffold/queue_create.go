@@ -26,6 +26,7 @@ import (
 	"go/ast"
 	"go/token"
 	"path/filepath"
+	"strings"
 )
 
 // QueueDriver enumera os drivers de fila que o scaffold sabe gerar. Por ora
@@ -56,12 +57,13 @@ type QueueCreateOptions struct {
 // QueueCreate gera o esqueleto completo do entrypoint de worker:
 //
 //   - bootstrap/<name>/setup.go      — Setup() + Run()
-//   - bootstrap/<name>/configs.go    — loadConfigs (envs + queue name)
+//   - bootstrap/<name>/configs.go    — loadConfigs (envPrefix + LoadEnvsForEntrypoint)
 //   - bootstrap/<name>/pkg.go        — registerPkg (logger, db, omniq client, ...)
 //   - bootstrap/<name>/repositories.go — registerRepositories (vazio)
 //   - bootstrap/<name>/services.go   — registerServices (vazio)
 //   - bootstrap/<name>/worker.go     — NewHandler(reg) stub
 //   - cmd/<name>/main.go             — chama <name>boot.Run()
+//   - .env.<name>                    — defaults de dev local (versionado)
 //
 // Retorna a lista de caminhos relativos editados na ordem acima.
 //
@@ -129,10 +131,10 @@ type queueFile struct {
 	src     []byte
 }
 
-// buildQueueOmniqFiles materializa os 7 arquivos do entrypoint omniq na
-// ordem canônica (bootstrap → cmd). Cada builder devolve source Go já
-// formatado por finalizeASTSource (format.Node + gofmt). Se algum AST
-// estiver mal-construído, falha aqui antes de tocar o disco.
+// buildQueueOmniqFiles materializa os 8 arquivos do entrypoint omniq na
+// ordem canônica (bootstrap Go → cmd Go → .env). Os 7 primeiros saem por
+// AST + format.Node + gofmt; o .env.<name> é texto puro (não-Go). Se algum
+// AST estiver mal-construído, falha aqui antes de tocar o disco.
 func buildQueueOmniqFiles(name string, imp importPaths) ([]queueFile, error) {
 	bootAlias := stripUnderscores(name) + "boot"
 	moduleBootstrap := imp.join(bootstrapBasePath + "/" + name)
@@ -148,6 +150,7 @@ func buildQueueOmniqFiles(name string, imp importPaths) ([]queueFile, error) {
 		{filepath.Join(bootstrapBasePath, name, "services.go"), func() ([]byte, error) { return buildQueueServicesFile(name, imp) }},
 		{filepath.Join(bootstrapBasePath, name, "worker.go"), func() ([]byte, error) { return buildQueueWorkerFile(name, imp) }},
 		{filepath.Join(cmdBasePath, name, "main.go"), func() ([]byte, error) { return buildQueueMainFile(name, bootAlias, moduleBootstrap) }},
+		{".env." + name, func() ([]byte, error) { return buildQueueDotEnvFile(name), nil }},
 	}
 
 	out := make([]queueFile, 0, len(specs))
@@ -315,11 +318,31 @@ func buildQueueConfigsFile(name string, imp importPaths) ([]byte, error) {
 
 	imports := ImportGroups(padder, []string{imp.join("pkg/config")})
 
+	// const envPrefix = "OMNIQ_<UPPER_NAME>"
+	envPrefixValue := "OMNIQ_" + strings.ToUpper(name)
+	envPrefixConst := &ast.GenDecl{
+		Tok: token.CONST,
+		Specs: []ast.Spec{
+			&ast.ValueSpec{
+				Names:  []*ast.Ident{Ident("envPrefix")},
+				Values: []ast.Expr{StrLit(envPrefixValue)},
+			},
+		},
+	}
+	envPrefixConst.Doc = singleComment(
+		"// envPrefix é o prefixo de todos os envs específicos deste worker (ex.:\n" +
+			"// OMNIQ_<NAME>_HOST, OMNIQ_<NAME>_QUEUE). Permite vários workers no mesmo\n" +
+			"// .env apontando pra Redis distintos sem conflito de nomes; também é\n" +
+			"// reusado pelo pkg.go (mesmo pacote) ao construir o omniq.Client.")
+
 	// conf = config.NewConfig()
 	confAssign := Assign(Ident("conf"), &ast.CallExpr{Fun: Sel("config", "NewConfig")})
 
-	// if err := conf.LoadEnvs(); err != nil { panic(err) }
-	loadEnvsCall := &ast.CallExpr{Fun: Sel("conf", "LoadEnvs")}
+	// if err := conf.LoadEnvsForEntrypoint("<name>"); err != nil { panic(err) }
+	loadEnvsCall := &ast.CallExpr{
+		Fun:  Sel("conf", "LoadEnvsForEntrypoint"),
+		Args: []ast.Expr{StrLit(name)},
+	}
 	loadEnvsInit := &ast.AssignStmt{
 		Lhs: []ast.Expr{Ident("err")},
 		Tok: token.DEFINE,
@@ -332,10 +355,10 @@ func buildQueueConfigsFile(name string, imp importPaths) ([]byte, error) {
 		Body: &ast.BlockStmt{List: []ast.Stmt{panicStmt}},
 	}
 
-	// queueName = conf.ReadConfig("OMNIQ_QUEUE")
+	// queueName = conf.ReadConfig(envPrefix + "_QUEUE")
 	queueNameAssign := Assign(Ident("queueName"), &ast.CallExpr{
 		Fun:  Sel("conf", "ReadConfig"),
-		Args: []ast.Expr{StrLit("OMNIQ_QUEUE")},
+		Args: []ast.Expr{prefixedEnvExpr("_QUEUE")},
 	})
 
 	returnStmt := ReturnStmt(Ident("conf"), Ident("queueName"))
@@ -351,17 +374,23 @@ func buildQueueConfigsFile(name string, imp importPaths) ([]byte, error) {
 		"// loadConfigs reads the envs and returns the config instance plus the queue\n" +
 			"// name. queueName sai por valor porque Run() precisa dele pra chamar\n" +
 			"// omniq.Consume; o restante dos envs (host/port/db, primitivos) é lido sob\n" +
-			"// demanda em pkg.go via *config.Config.")
+			"// demanda em pkg.go via *config.Config.\n" +
+			"//\n" +
+			"// LoadEnvsForEntrypoint segue a priority list do pkg/config: .env (creds\n" +
+			"// reais de homolog, gitignored) > .env.<name> (defaults de dev, versionado)\n" +
+			"// > system envs (prod). Em prod nenhum dos arquivos é necessário.")
 
 	// Layout stamping
 	packagePos := padder.Take()
+	padder.Gap(1)
+
+	stampDeclWithDoc(padder, envPrefixConst)
 	padder.Gap(1)
 
 	stampDocPositions(padder, loadFn.Doc)
 	loadFn.Type.Func = padder.Take()
 	loadFn.Body.Lbrace = padder.Take()
 	stampAssignStmt(padder, confAssign)
-	// if-stmt: stamp If position + body lbrace/rbrace.
 	ifLoadEnvs.If = padder.Take()
 	ifLoadEnvs.Body.Lbrace = padder.Take()
 	panicStmt.X.(*ast.CallExpr).Fun.(*ast.Ident).NamePos = padder.Take()
@@ -370,7 +399,7 @@ func buildQueueConfigsFile(name string, imp importPaths) ([]byte, error) {
 	returnStmt.Return = padder.Take()
 	loadFn.Body.Rbrace = padder.Take()
 
-	decls := []ast.Decl{imports, loadFn}
+	decls := []ast.Decl{imports, envPrefixConst, loadFn}
 	file := &ast.File{
 		Package: packagePos,
 		Name:    Ident(name),
@@ -378,6 +407,17 @@ func buildQueueConfigsFile(name string, imp importPaths) ([]byte, error) {
 	}
 	file.Comments = collectDocs(nil, decls)
 	return finalizeASTSource(fset, file)
+}
+
+// prefixedEnvExpr monta a BinaryExpr `envPrefix + "<suffix>"` usada nos
+// templates de configs.go e pkg.go pra construir chaves de env scoped por
+// entrypoint sem hardcodar o prefixo em cada call site.
+func prefixedEnvExpr(suffix string) ast.Expr {
+	return &ast.BinaryExpr{
+		X:  Ident("envPrefix"),
+		Op: token.ADD,
+		Y:  StrLit(suffix),
+	}
 }
 
 // buildQueuePkgFile monta `bootstrap/<name>/pkg.go`: registerPkg com
@@ -448,13 +488,17 @@ func buildQueuePkgFile(name string, imp importPaths) ([]byte, error) {
 		Rhs: []ast.Expr{&ast.CallExpr{Fun: Sel("idCreator", "NewIdCreator")}},
 	}
 
-	// client, err := omniq.NewClient(omniq.ClientOpts{Host: ..., Port: ..., DB: ...})
+	// client, err := omniq.NewClient(omniq.ClientOpts{
+	//     Host: conf.ReadConfig(envPrefix + "_HOST"),
+	//     Port: conf.ReadNumberConfig(envPrefix + "_PORT"),
+	//     DB:   conf.ReadNumberConfig(envPrefix + "_DB"),
+	// })
 	clientOpts := &ast.CompositeLit{
 		Type: Sel("omniq", "ClientOpts"),
 		Elts: []ast.Expr{
-			&ast.KeyValueExpr{Key: Ident("Host"), Value: readConfigCall("OMNIQ_HOST")},
-			&ast.KeyValueExpr{Key: Ident("Port"), Value: readNumberConfigCall("OMNIQ_PORT")},
-			&ast.KeyValueExpr{Key: Ident("DB"), Value: readNumberConfigCall("OMNIQ_DB")},
+			&ast.KeyValueExpr{Key: Ident("Host"), Value: prefixedConfigCall("_HOST")},
+			&ast.KeyValueExpr{Key: Ident("Port"), Value: prefixedNumberConfigCall("_PORT")},
+			&ast.KeyValueExpr{Key: Ident("DB"), Value: prefixedNumberConfigCall("_DB")},
 		},
 	}
 	clientCall := &ast.CallExpr{
@@ -684,6 +728,36 @@ func buildQueueWorkerFile(name string, imp importPaths) ([]byte, error) {
 	return finalizeASTSource(fset, file)
 }
 
+// buildQueueDotEnvFile monta `.env.<name>` na raiz do repo — defaults
+// VERSIONADOS pra dev local. Não-Go: texto puro com banner avisando que
+// segredos reais não devem entrar aqui (vai pro git). Para creds de
+// homolog/staging, o dev cria `.env` na raiz (gitignored, prioridade 1).
+func buildQueueDotEnvFile(name string) []byte {
+	upper := strings.ToUpper(name)
+	body := fmt.Sprintf(`# ============================================================================
+# .env.%[1]s — config DE DEV LOCAL pra o entrypoint %[1]s
+# ============================================================================
+# Este arquivo é COMMITADO. Serve de template/default pra rodar o entrypoint
+# logo após clonar o repo (apontando pra serviços locais: localhost, etc.).
+#
+# >>> NÃO COLOQUE CREDENCIAIS REAIS AQUI. <<<
+# Nada de senha de banco de prod, tokens de API, keys de cloud, etc. Tudo
+# que entra aqui vai pro git e fica visível pra todo mundo com acesso ao repo.
+#
+# Pra valores sensíveis (homolog/staging), crie um .env na raiz do repo —
+# ele tem prioridade 1 e está no .gitignore.
+#
+# Em produção, o binário lê só envs do sistema; nenhum .env é necessário.
+# ============================================================================
+
+OMNIQ_%[2]s_HOST=localhost
+OMNIQ_%[2]s_PORT=6379
+OMNIQ_%[2]s_DB=0
+OMNIQ_%[2]s_QUEUE=%[1]s
+`, name, upper)
+	return []byte(body)
+}
+
 // buildQueueMainFile monta `cmd/<name>/main.go`: import log + alias do
 // bootstrap, func main com if-err `log.Fatalf` em caso de erro do Run().
 func buildQueueMainFile(name, bootAlias, bootImportPath string) ([]byte, error) {
@@ -765,11 +839,20 @@ func readConfigCall(key string) *ast.CallExpr {
 	}
 }
 
-// readNumberConfigCall monta `conf.ReadNumberConfig("<key>")`.
-func readNumberConfigCall(key string) *ast.CallExpr {
+// prefixedConfigCall monta `conf.ReadConfig(envPrefix + "<suffix>")` —
+// scoped por entrypoint (configs.go declara envPrefix como const local).
+func prefixedConfigCall(suffix string) *ast.CallExpr {
+	return &ast.CallExpr{
+		Fun:  Sel("conf", "ReadConfig"),
+		Args: []ast.Expr{prefixedEnvExpr(suffix)},
+	}
+}
+
+// prefixedNumberConfigCall monta `conf.ReadNumberConfig(envPrefix + "<suffix>")`.
+func prefixedNumberConfigCall(suffix string) *ast.CallExpr {
 	return &ast.CallExpr{
 		Fun:  Sel("conf", "ReadNumberConfig"),
-		Args: []ast.Expr{StrLit(key)},
+		Args: []ast.Expr{prefixedEnvExpr(suffix)},
 	}
 }
 
