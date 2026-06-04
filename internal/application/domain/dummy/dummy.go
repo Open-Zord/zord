@@ -1,7 +1,7 @@
 package dummy
 
 import (
-	"github.com/Open-Zord/zord/internal/application/domain/baserepo"
+	"github.com/Open-Zord/zord/internal/application/providers/baserepo"
 )
 
 type Dummy struct {

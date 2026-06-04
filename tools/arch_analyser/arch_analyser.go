@@ -189,7 +189,7 @@ func ValidateDbQueriesInRepositories(root string) error {
 		if strings.Contains(path, sep+"repositories"+sep) {
 			return nil
 		}
-		if strings.Contains(path, sep+"domain"+sep+"baserepo"+sep) {
+		if strings.Contains(path, sep+"providers"+sep+"baserepo"+sep) {
 			return nil
 		}
 		content, err := os.ReadFile(path)
@@ -838,9 +838,9 @@ func ValidateExternalPackagesUsage(root string) error {
 		// TODO: remover sqlx de services quando a refatoração do UnitOfWork
 		// abstrair *sqlx.Tx das interfaces de repositório.
 		"services": {"github.com/rs/zerolog", "github.com/jmoiron/sqlx", apperrorPkg},
-		// TODO: remover sqlx de domain quando o UnitOfWork abstrair *sqlx.Tx
-		// do contrato baserepo.Repository (a interface ainda expõe Tx).
-		"domain": {"github.com/jmoiron/sqlx"},
+		// providers/baserepo expõe *sqlx.Tx no contrato.
+		// TODO: remover quando o UnitOfWork abstrair Tx.
+		"providers": {"github.com/jmoiron/sqlx"},
 	}
 	layerPaths := map[string]string{
 		"repositories": filepath.Join(root, "internal/repositories"),

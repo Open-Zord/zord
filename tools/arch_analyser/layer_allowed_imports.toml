@@ -15,9 +15,9 @@ allowed = [
 [domain]
 allowed = [
   "internal/application/domain",
-  # TODO: remover quando o UnitOfWork abstrair *sqlx.Tx do contrato
-  # baserepo.BaseRepository.
-  "github.com/jmoiron/sqlx"
+  # baserepo (port de persistência) mora em providers/ ao lado de
+  # baseservice; o domain importa o contrato pra declarar Repository.
+  "internal/application/providers/baserepo"
 ]
 
 [repositories]
@@ -31,7 +31,10 @@ allowed = [
 
 [providers]
 allowed = [
-  "internal/application/providers"
+  "internal/application/providers",
+  # baserepo expõe *sqlx.Tx no contrato.
+  # TODO: remover quando o UnitOfWork abstrair Tx.
+  "github.com/jmoiron/sqlx"
 ]
 
 [context]
