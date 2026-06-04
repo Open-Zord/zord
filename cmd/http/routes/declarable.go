@@ -13,9 +13,7 @@ type Declarable interface {
 
 func GetRoutes(reg *registry.Registry) map[string]Declarable {
 	health := NewHealthRoute()
-	dummyListRoutes := NewDummyRoutes(reg)
 	return map[string]Declarable{
-		"health": health,
-		"dummy":  dummyListRoutes,
+		"health": health, "dummy": NewDummyRoute(reg),
 	}
 }

@@ -2,25 +2,18 @@ package dummy
 
 import (
 	"github.com/Open-Zord/zord/internal/application/providers/filters"
-	"github.com/Open-Zord/zord/internal/application/providers/pagination"
 	"github.com/Open-Zord/zord/internal/repositories/base_repository"
 )
 
 type Dummy struct {
-	ID        string `db:"id"`
-	DummyName string `db:"name"`
-	Email     string `db:"email"`
-	DeletedAt string `db:"deleted_at"`
-	client    string
-	filters   *filters.Filters
+	ID      string `db:"id" db_type:"char(26)" db_pk:""`
+	Name    string `db:"name" json:"name" validate:"required" db_type:"char(255)"`
+	Email   string `db:"email" json:"email" validate:"required,email" db_type:"char(255)"`
+	filters *filters.Filters
 }
 
-func (d *Dummy) SetClient(client string) {
-	d.client = client
-}
-
-func (d *Dummy) SetFilters(filters *filters.Filters) {
-	d.filters = filters
+func (d *Dummy) SetFilters(f *filters.Filters) {
+	d.filters = f
 }
 
 func (d Dummy) SoftDelete() string {
@@ -35,16 +28,9 @@ func (d Dummy) GetFilters() filters.Filters {
 }
 
 func (d Dummy) Schema() string {
-	if d.client == "" {
-		return "dummy"
-	}
-	return d.client + "." + "dummy"
+	return "dummys"
 }
 
 type Repository interface {
 	base_repository.BaseRepository[Dummy]
-}
-
-type PaginationProvider interface {
-	pagination.IPaginationProvider[Dummy]
 }
