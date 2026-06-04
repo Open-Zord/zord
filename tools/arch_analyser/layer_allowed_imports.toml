@@ -6,24 +6,36 @@ allowed = [
   "internal/repositories",
   "internal/application/providers",
   "internal/application/context",
+  "pkg/apperror",
   # TODO: remover quando a refatoração do UnitOfWork abstrair *sqlx.Tx
   # das interfaces de repositório expostas ao service layer.
   "github.com/jmoiron/sqlx"
 ]
 
 [domain]
-allowed = [] # Apenas stdlib
+allowed = [
+  "internal/application/domain",
+  # baserepo (port de persistência) mora em providers/ ao lado de
+  # baseservice; o domain importa o contrato pra declarar Repository.
+  "internal/application/providers/baserepo"
+]
 
 [repositories]
 allowed = [
   "internal/application/domain",
+  "internal/repositories",
   "github.com/fatih/structs",
   "github.com/jmoiron/sqlx",
   "github.com/go-sql-driver/mysql"
 ]
 
 [providers]
-allowed = [] # Apenas stdlib
+allowed = [
+  "internal/application/providers",
+  # baserepo expõe *sqlx.Tx no contrato.
+  # TODO: remover quando o UnitOfWork abstrair Tx.
+  "github.com/jmoiron/sqlx"
+]
 
 [context]
 allowed = [] # Apenas stdlib 

@@ -11,7 +11,11 @@ import (
 // RegistryKey is the key under which the validator is registered in the registry.
 const RegistryKey = "validator"
 
-var validationMessages = map[string]string{
+// defaultValidationMessages devolve o mapa canônico de mensagens por tag.
+// Era um `var` global, virou função pra cumprir a regra "sem var global
+// mutável" do arch_analyser sem mudar o ponto de uso.
+func defaultValidationMessages() map[string]string {
+	return map[string]string{
 	"alpha":                "The :attribute may only contain letters.",
 	"alphanum":             "The :attribute may only contain letters and numbers.",
 	"alphanumunicode":      "The :attribute may only contain letters, numbers and unicode characters.",
@@ -44,7 +48,8 @@ var validationMessages = map[string]string{
 	"timezone":             "The :attribute must be a valid zone.",
 	"unique":               "The :attribute has already been taken.",
 	"url":                  "The :attribute format is invalid.",
-	"ulid":                 "The :attribute must be a valid ULID string.",
+		"ulid":                 "The :attribute must be a valid ULID string.",
+	}
 }
 
 type ErrorResponse struct {
@@ -61,7 +66,7 @@ type Validator struct {
 func NewValidator() *Validator {
 	return &Validator{
 		validate:           validator.New(),
-		validationMessages: validationMessages,
+		validationMessages: defaultValidationMessages(),
 	}
 }
 

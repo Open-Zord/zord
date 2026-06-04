@@ -172,7 +172,7 @@ func buildRequestFileWithFields(pkg, verb string, dataFields []*ast.Field, withV
 	if withValidator {
 		requestFields = append(requestFields, &ast.Field{
 			Names: []*ast.Ident{Ident("validator")},
-			Type:  Sel("services", "Validator"),
+			Type:  Sel("baseservice", "Validator"),
 		})
 	}
 	requestDecl := TypeDecl("Request", &ast.StructType{Fields: &ast.FieldList{List: requestFields}})
@@ -184,7 +184,7 @@ func buildRequestFileWithFields(pkg, verb string, dataFields []*ast.Field, withV
 	if withValidator {
 		newReqParams = append(newReqParams, &ast.Field{
 			Names: []*ast.Ident{Ident("validator")},
-			Type:  Sel("services", "Validator"),
+			Type:  Sel("baseservice", "Validator"),
 		})
 		retElts = append(retElts, &ast.KeyValueExpr{Key: Ident("validator"), Value: Ident("validator")})
 	}
@@ -225,7 +225,7 @@ func buildRequestFileWithFields(pkg, verb string, dataFields []*ast.Field, withV
 
 	var imports *ast.GenDecl
 	if withValidator {
-		imports = ImportGroups(padder, []string{imp.join(servicesImportSubpath)})
+		imports = ImportGroups(padder, []string{imp.join(baseserviceImportSubpath)})
 	}
 
 	packagePos := padder.Take()

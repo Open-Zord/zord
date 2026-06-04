@@ -2,7 +2,6 @@ package pagination
 
 import (
 	"errors"
-	"github.com/Open-Zord/zord/internal/application/providers/filters"
 	"math"
 )
 
@@ -18,7 +17,6 @@ type Pagination[Row any] struct {
 
 type Domain interface {
 	Schema() string
-	GetFilters() filters.Filters
 	SoftDelete() string
 }
 

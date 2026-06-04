@@ -17,9 +17,9 @@ func TestRequestValidatorSet_HappyPath(t *testing.T) {
 	}
 	got := readFile(t, filepath.Join(root, rel))
 	mustContain(t, got,
-		`"zord/internal/application/services"`,
-		"validator services.Validator",
-		"func NewRequest(data *Data, validator services.Validator) *Request",
+		`"zord/internal/application/providers/baseservice"`,
+		"validator baseservice.Validator",
+		"func NewRequest(data *Data, validator baseservice.Validator) *Request",
 		"validator: validator",
 		"errs := r.validator.ValidateStruct(r.Data)",
 		"for _, err := range errs",
@@ -64,7 +64,7 @@ func TestRequestValidatorUnset_HappyPath(t *testing.T) {
 		t.Fatalf("RequestValidatorUnset: %v", err)
 	}
 	got := readFile(t, filepath.Join(root, rel))
-	if strings.Contains(got, "validator services.Validator") {
+	if strings.Contains(got, "validator baseservice.Validator") {
 		t.Errorf("campo validator ainda presente:\n%s", got)
 	}
 	if strings.Contains(got, "ValidateStruct") {
@@ -75,7 +75,7 @@ func TestRequestValidatorUnset_HappyPath(t *testing.T) {
 		"return &Request{Data: data}",
 		"return nil",
 	)
-	if strings.Contains(got, `"zord/internal/application/services"`) {
+	if strings.Contains(got, `"zord/internal/application/providers/baseservice"`) {
 		t.Errorf("import services não foi prunado:\n%s", got)
 	}
 	if err := parseGoSrc([]byte(got)); err != nil {
@@ -111,6 +111,6 @@ func TestRequestValidatorSet_KeepsExistingDataFields(t *testing.T) {
 	mustContain(t, string(src),
 		"Email string",
 		"validate:\"required,email\"",
-		"validator services.Validator",
+		"validator baseservice.Validator",
 	)
 }

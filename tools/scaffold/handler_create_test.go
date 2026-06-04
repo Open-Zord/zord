@@ -74,10 +74,10 @@ func TestHandlerCreate_WithValidator(t *testing.T) {
 	}
 	got := readFile(t, filepath.Join(root, rel))
 	mustContain(t, got,
-		`"zord/internal/application/services"`,
+		`"zord/internal/application/providers/baseservice"`,
 		`"zord/pkg/validator"`,
-		"validator services.Validator",
-		"valSvc := registry.Resolve[services.Validator](reg, validator.RegistryKey)",
+		"validator baseservice.Validator",
+		"valSvc := registry.Resolve[baseservice.Validator](reg, validator.RegistryKey)",
 		"return &LoginHandler{svc: svc, validator: valSvc}",
 		"req := login.NewRequest(&data, h.validator)",
 	)
