@@ -1,6 +1,6 @@
 // Package httperr centraliza a serialização padrão de erros HTTP no formato
 // {"code": string, "message": string} e concentra o mapeamento kind→status
-// dos erros de aplicação (services.AppError). É o único ponto do transporte
+// dos erros de aplicação (apperror.AppError). É o único ponto do transporte
 // que conhece HTTP status; a camada de aplicação fala apenas semântica (kind).
 package httperr
 
@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Open-Zord/zord/internal/application/services"
+	"github.com/Open-Zord/zord/pkg/apperror"
 
 	"github.com/labstack/echo/v4"
 )
@@ -19,7 +19,7 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
-// statusFor mapeia o kind semântico de um services.AppError para o HTTP status
+// statusFor mapeia o kind semântico de um apperror.AppError para o HTTP status
 // equivalente. Qualquer kind desconhecido (ou "internal") cai em 500.
 func statusFor(kind string) int {
 	switch kind {
@@ -39,12 +39,12 @@ func statusFor(kind string) int {
 }
 
 // Respond serializa um error de service para a resposta JSON padrão. Quando o
-// erro é um *services.AppError, o status vem do kind e o code é o genérico
+// erro é um *apperror.AppError, o status vem do kind e o code é o genérico
 // derivado dele (strings.ToUpper(kind)). Qualquer outro error cai no fallback
 // INTERNAL/500.
 func Respond(c echo.Context, err error) error {
 	//nolint:errorlint // services retornam *AppError diretamente, sem wrapping %w
-	if ae, ok := err.(*services.AppError); ok {
+	if ae, ok := err.(*apperror.AppError); ok {
 		return c.JSON(statusFor(ae.Kind()), ErrorResponse{
 			Code:    strings.ToUpper(ae.Kind()),
 			Message: ae.Message,

@@ -77,6 +77,8 @@ func (p importPaths) join(sub string) string {
 const (
 	domainImportSubpath         = "internal/application/domain"
 	servicesImportSubpath       = "internal/application/services"
+	baseserviceImportSubpath    = "internal/application/providers/baseservice"
+	apperrorImportSubpath       = "pkg/apperror"
 	handlersImportSubpath       = "cmd/http/handlers"
 	httperrImportSubpath        = "cmd/http/httperr"
 	registryImportSubpath       = "pkg/registry"

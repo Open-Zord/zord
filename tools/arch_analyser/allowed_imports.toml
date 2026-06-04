@@ -87,5 +87,7 @@ pkgs = [
   "unicode/utf16",
   "github.com/fatih/structs",
   "github.com/jmoiron/sqlx",
-  "github.com/go-sql-driver/mysql"
+  "github.com/go-sql-driver/mysql",
+  # Primitivas de pkg/ acessíveis a internal/ (value types agnósticos de transporte)
+  "github.com/Open-Zord/zord/pkg/apperror"
 ]

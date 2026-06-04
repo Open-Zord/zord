@@ -1,12 +1,13 @@
-package services
-
-// AppError é o erro de aplicação agnóstico de transporte. Carrega apenas uma
-// categoria semântica (kind) e uma mensagem — nunca um HTTP status nem um
-// code de API. O kind determina o HTTP status no transporte (cmd/http).
+// Package apperror define o erro de aplicação agnóstico de transporte.
+// Carrega apenas uma categoria semântica (kind) e uma mensagem — nunca um HTTP
+// status nem um code de API. O kind determina o HTTP status no transporte
+// (cmd/http).
 //
 // AppError satisfaz a interface error: Error() devolve a mensagem. Os
 // construtores padronizados são o único caminho de criação — o kind é
 // privado, então não há var global nem literal arbitrário de kind.
+package apperror
+
 type AppError struct {
 	kind    string
 	Message string
@@ -40,7 +41,9 @@ func NewConflict(msg string) *AppError { return &AppError{kind: kindConflict, Me
 func NewInvalid(msg string) *AppError { return &AppError{kind: kindInvalid, Message: msg} }
 
 // NewUnauthorized constrói um AppError de credencial ausente ou inválida.
-func NewUnauthorized(msg string) *AppError { return &AppError{kind: kindUnauthorized, Message: msg} }
+func NewUnauthorized(msg string) *AppError {
+	return &AppError{kind: kindUnauthorized, Message: msg}
+}
 
 // NewForbidden constrói um AppError de acesso negado a recurso existente.
 func NewForbidden(msg string) *AppError { return &AppError{kind: kindForbidden, Message: msg} }

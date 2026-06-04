@@ -255,7 +255,7 @@ func buildServiceFile(pkg, verb string, imp importPaths) ([]byte, error) {
 
 	imports := ImportGroups(padder,
 		[]string{"context"},
-		[]string{imp.join(servicesImportSubpath)},
+		[]string{imp.join(baseserviceImportSubpath), imp.join(apperrorImportSubpath)},
 	)
 
 	registryKey := ToLowerCamel(verb) + "Service"
@@ -272,7 +272,7 @@ func buildServiceFile(pkg, verb string, imp importPaths) ([]byte, error) {
 
 	serviceStruct := &ast.StructType{
 		Fields: FieldList(
-			AnonField(Sel("services", "BaseService")),
+			AnonField(Sel("baseservice", "BaseService")),
 			Field("response", StarOf(Ident("Response"))),
 		),
 	}
@@ -280,7 +280,7 @@ func buildServiceFile(pkg, verb string, imp importPaths) ([]byte, error) {
 	serviceDecl.Doc = singleComment(fmt.Sprintf("// Service executa o use case %s.", verb))
 
 	baseServiceLit := &ast.CompositeLit{
-		Type: Sel("services", "BaseService"),
+		Type: Sel("baseservice", "BaseService"),
 		Elts: []ast.Expr{
 			&ast.KeyValueExpr{Key: Ident("Logger"), Value: Ident("logger")},
 			&ast.KeyValueExpr{Key: Ident("Ulid"), Value: Ident("idCreator")},
@@ -298,8 +298,8 @@ func buildServiceFile(pkg, verb string, imp importPaths) ([]byte, error) {
 		nil,
 		"NewService",
 		FieldList(
-			Field("logger", Sel("services", "Logger")),
-			Field("idCreator", Sel("services", "IdCreator")),
+			Field("logger", Sel("baseservice", "Logger")),
+			Field("idCreator", Sel("baseservice", "IdCreator")),
 		),
 		FieldList(AnonField(StarOf(Ident("Service")))),
 		[]ast.Stmt{ReturnStmt(returnNew)},
@@ -319,7 +319,7 @@ func buildServiceFile(pkg, verb string, imp importPaths) ([]byte, error) {
 		Cond: Binary(token.NEQ, Ident("err"), Ident("nil")),
 		Body: &ast.BlockStmt{List: []ast.Stmt{
 			ReturnStmt(&ast.CallExpr{
-				Fun: Sel("services", "NewInvalid"),
+				Fun: Sel("apperror", "NewInvalid"),
 				Args: []ast.Expr{
 					&ast.CallExpr{Fun: &ast.SelectorExpr{X: Ident("err"), Sel: Ident("Error")}},
 				},

@@ -3,7 +3,6 @@ package base_repository
 import (
 	"errors"
 	"fmt"
-	"github.com/Open-Zord/zord/internal/application/providers/filters"
 	"strings"
 
 	"github.com/fatih/structs"
@@ -21,12 +20,10 @@ type BaseRepository[dom Domain] interface {
 	InitTX() (*sqlx.Tx, error)
 	Commit(tx *sqlx.Tx) error
 	Rollback(tx *sqlx.Tx, err error) error
-	NewFilters() *QueryBuilder
 }
 
 type Domain interface {
 	Schema() string
-	GetFilters() filters.Filters
 	SoftDelete() string
 }
 
@@ -68,16 +65,6 @@ func (repo *BaseRepo[Domain]) Rollback(tx *sqlx.Tx, err error) error {
 		return rollbErr
 	}
 	return err
-}
-
-func (repo *BaseRepo[Domain]) NewFilters() *QueryBuilder {
-	return &QueryBuilder{
-		Fields: "",
-		Where:  "",
-		Order:  "",
-		Limit:  nil,
-		Offset: nil,
-	}
 }
 
 func (repo *BaseRepo[Domain]) Get(Data Domain, field string, value string) (*Domain, error) {
@@ -135,28 +122,16 @@ func (repo *BaseRepo[Domain]) Create(Data Domain, tx *sqlx.Tx, autoCommit bool) 
 	return nil
 }
 
+// List devolve todas as linhas da tabela do Domain dentro do range
+// LIMIT/OFFSET. Sem cláusula WHERE: filtros específicos viram métodos sob
+// medida no repositório do domínio (não há mais filtro dinâmico genérico).
 func (repo *BaseRepo[Domain]) List(Data Domain, limit int, offset int) (*[]Domain, error) {
 	var results []Domain
-	queryBuilder := repo.NewFilters()
-	f := Data.GetFilters()
-	for _, data := range f.ParsedData {
-		queryBuilder.SetWhere(data.Field, data.Operator, data.Value, data.IsString)
-		queryBuilder.And()
-	}
-
-	where := queryBuilder.GetWhere()
-
 	rows, err := repo.Mysql.Queryx(
 		fmt.Sprintf(
-			`SELECT
-						%s
-					FROM
-						%s
-					%s
-					LIMIT %v OFFSET %v`,
+			`SELECT %s FROM %s LIMIT %v OFFSET %v`,
 			strings.Join(repo.fields, ", "),
 			Data.Schema(),
-			where,
 			limit,
 			offset,
 		),
@@ -171,9 +146,6 @@ func (repo *BaseRepo[Domain]) List(Data Domain, limit int, offset int) (*[]Domai
 			return nil, err
 		}
 		results = append(results, Data)
-	}
-	if err != nil {
-		return nil, err
 	}
 	return &results, nil
 }
@@ -270,17 +242,11 @@ func (repo *BaseRepo[Domain]) Delete(Data Domain, field string, value string) er
 	return err
 }
 
+// Count devolve a contagem total de linhas da tabela do Domain. Sem WHERE:
+// counts filtrados viram métodos sob medida no repositório do domínio.
 func (repo *BaseRepo[Domain]) Count(Data Domain) (int64, error) {
 	var count int64
-	queryBuilder := repo.NewFilters()
-	f := Data.GetFilters()
-	for _, data := range f.ParsedData {
-		queryBuilder.SetWhere(data.Field, data.Operator, data.Value, data.IsString)
-		queryBuilder.And()
-	}
-
-	where := queryBuilder.GetWhere()
-	err := repo.Mysql.Get(&count, "SELECT count(1) FROM "+Data.Schema()+" "+where)
+	err := repo.Mysql.Get(&count, "SELECT count(1) FROM "+Data.Schema())
 	return count, err
 }
 

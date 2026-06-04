@@ -1,4 +1,8 @@
-package services
+// Package baseservice expõe os primitivos compartilhados entre todos os use
+// cases (services): a struct base BaseService com helpers de erro legados,
+// e as interfaces (ports) Logger, IdCreator e Validator que use cases
+// recebem via injeção.
+package baseservice
 
 import (
 	"net/http"
@@ -20,6 +24,9 @@ type Validator interface {
 	ValidateStruct(modelData any) []error
 }
 
+// Error é o erro legado da BaseService (HTTP-aware). Novo código deve usar
+// pkg/apperror.AppError; este tipo permanece pra manter compatibilidade com
+// helpers existentes.
 type Error struct {
 	Status  int
 	Message interface{}

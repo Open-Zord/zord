@@ -182,8 +182,14 @@ func ValidateDbQueriesInRepositories(root string) error {
 		if strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
-		// Permitir apenas arquivos dentro de /internal/repositories/
-		if strings.Contains(path, string(os.PathSeparator)+"repositories"+string(os.PathSeparator)) {
+		// Permitir arquivos dentro de /internal/repositories/ (implementação) e
+		// /internal/application/domain/baserepo/ (port que declara as
+		// assinaturas das queries sem implementá-las).
+		sep := string(os.PathSeparator)
+		if strings.Contains(path, sep+"repositories"+sep) {
+			return nil
+		}
+		if strings.Contains(path, sep+"domain"+sep+"baserepo"+sep) {
 			return nil
 		}
 		content, err := os.ReadFile(path)
@@ -787,7 +793,13 @@ func ValidateNamingAndLocation(root string) error {
 							errors = append(errors, errorWithPos(fset, typeSpec, path, "struct de domínio fora de internal/application/domain: "+name))
 						}
 						if strings.HasSuffix(name, "Service") && !strings.HasPrefix(path, servicesPath) {
-							errors = append(errors, errorWithPos(fset, typeSpec, path, "Service fora de internal/application/services: "+name))
+							// providers/baseservice é a casa dos primitivos
+							// compartilhados (BaseService, Logger…); não é
+							// um use case.
+							baseservicePath := filepath.Join(root, "internal/application/providers/baseservice")
+							if !strings.HasPrefix(path, baseservicePath) {
+								errors = append(errors, errorWithPos(fset, typeSpec, path, "Service fora de internal/application/services: "+name))
+							}
 						}
 						if (strings.HasSuffix(name, "Repository") || strings.HasSuffix(name, "Repo")) && !strings.HasPrefix(path, repoPath) {
 							errors = append(errors, errorWithPos(fset, typeSpec, path, "Repository fora de internal/repositories: "+name))
@@ -819,11 +831,16 @@ func ValidateNamingAndLocation(root string) error {
 // ValidateExternalPackagesUsage garante que apenas camadas permitidas importem pacotes externos
 func ValidateExternalPackagesUsage(root string) error {
 	// Defina aqui os pacotes externos permitidos por camada
+	mod, _ := readModulePath(root)
+	apperrorPkg := mod + "/pkg/apperror"
 	allowed := map[string][]string{
 		"repositories": {"github.com/jmoiron/sqlx", "github.com/fatih/structs", "github.com/go-sql-driver/mysql"},
 		// TODO: remover sqlx de services quando a refatoração do UnitOfWork
 		// abstrair *sqlx.Tx das interfaces de repositório.
-		"services": {"github.com/rs/zerolog", "github.com/jmoiron/sqlx"},
+		"services": {"github.com/rs/zerolog", "github.com/jmoiron/sqlx", apperrorPkg},
+		// TODO: remover sqlx de domain quando o UnitOfWork abstrair *sqlx.Tx
+		// do contrato baserepo.Repository (a interface ainda expõe Tx).
+		"domain": {"github.com/jmoiron/sqlx"},
 	}
 	layerPaths := map[string]string{
 		"repositories": filepath.Join(root, "internal/repositories"),

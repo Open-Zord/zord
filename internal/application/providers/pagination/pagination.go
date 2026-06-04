@@ -2,7 +2,6 @@ package pagination
 
 import (
 	"errors"
-	"github.com/Open-Zord/zord/internal/application/providers/filters"
 	"math"
 )
 
@@ -16,22 +15,16 @@ type Pagination[Row any] struct {
 	Data        *[]Row
 }
 
-type Domain interface {
-	Schema() string
-	GetFilters() filters.Filters
-	SoftDelete() string
-}
-
 type IPaginationRepository[Row any] interface {
 	List(domain Row, limit int, offset int) (*[]Row, error)
 	Count(domain Row) (int64, error)
 }
 
-type Provider[Row Domain] struct {
+type Provider[Row any] struct {
 	repo IPaginationRepository[Row]
 }
 
-func NewPaginationProvider[Row Domain](repo IPaginationRepository[Row]) *Provider[Row] {
+func NewPaginationProvider[Row any](repo IPaginationRepository[Row]) *Provider[Row] {
 	return &Provider[Row]{
 		repo: repo,
 	}

@@ -275,7 +275,7 @@ func buildHandlerFile(snakeDomain, snakeService, service string, withValidator b
 		// chamada `valSvc` pra evitar shadowing do pacote dentro do escopo
 		// onde ainda precisamos do RegistryKey.
 		mainImports = append(mainImports,
-			imp.join(servicesImportSubpath),
+			imp.join(baseserviceImportSubpath),
 			imp.join(validatorImportSubpath),
 		)
 	}
@@ -300,7 +300,7 @@ func buildHandlerFile(snakeDomain, snakeService, service string, withValidator b
 
 	structFields := []*ast.Field{Field("svc", StarOf(Sel(servicePkg, "Service")))}
 	if withValidator {
-		structFields = append(structFields, Field("validator", Sel("services", "Validator")))
+		structFields = append(structFields, Field("validator", Sel("baseservice", "Validator")))
 	}
 	structType := &ast.StructType{Fields: &ast.FieldList{List: structFields}}
 	structDecl := TypeDecl(handlerType, structType)
@@ -336,7 +336,7 @@ func buildHandlerFile(snakeDomain, snakeService, service string, withValidator b
 		valResolve := &ast.CallExpr{
 			Fun: IndexExpr(
 				Sel("registry", "Resolve"),
-				Sel("services", "Validator"),
+				Sel("baseservice", "Validator"),
 			),
 			Args: []ast.Expr{
 				Ident("reg"),
