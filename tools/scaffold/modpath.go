@@ -83,6 +83,6 @@ const (
 	httperrImportSubpath        = "cmd/http/httperr"
 	registryImportSubpath       = "pkg/registry"
 	validatorImportSubpath      = "pkg/validator"
-	filtersImportSubpath        = "internal/application/providers/filters"
+	baserepoImportSubpath       = "internal/application/providers/baserepo"
 	baseRepositoryImportSubpath = "internal/repositories/base_repository"
 )

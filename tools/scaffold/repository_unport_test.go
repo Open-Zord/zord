@@ -49,13 +49,9 @@ func TestRepositoryUnport_HappyPathSingleTenant(t *testing.T) {
 	}
 	mustNotContain(t, got,
 		"func (f Foo) Schema()",
-		"func (f Foo) GetFilters()",
 		"func (f Foo) SoftDelete()",
-		"func (f *Foo) SetFilters(",
-		"filters *filters.Filters",
 		"type Repository",
-		"zord/internal/application/providers/filters",
-		"zord/internal/repositories/base_repository",
+		"zord/internal/application/providers/baserepo",
 	)
 }
 
@@ -75,11 +71,8 @@ func TestRepositoryUnport_HappyPathMultiTenant(t *testing.T) {
 	mustNotContain(t, got,
 		"func (f *Foo) SetClient(",
 		"client string",
-		"client  string",
-		"filters *filters.Filters",
 		"type Repository",
-		"zord/internal/application/providers/filters",
-		"zord/internal/repositories/base_repository",
+		"zord/internal/application/providers/baserepo",
 	)
 }
 
@@ -96,8 +89,7 @@ func TestRepositoryUnport_AutoDetectsMultiTenant(t *testing.T) {
 	if strings.Contains(got, "SetClient") {
 		t.Errorf("auto-detect falhou: SetClient residual\n%s", got)
 	}
-	if strings.Contains(got, "client") && strings.Contains(got, "string") &&
-		strings.Contains(got, "\tclient ") {
+	if strings.Contains(got, "\tclient ") {
 		t.Errorf("auto-detect falhou: campo client residual\n%s", got)
 	}
 }
@@ -106,23 +98,20 @@ func TestRepositoryUnport_PreservesImportsStillUsed(t *testing.T) {
 	root := t.TempDir()
 	rel := portFoo(t, root, "Foo", false)
 
-	// Adiciona uma função extra usando `filters.Filters` — o import precisa
-	// sobreviver ao prune.
+	// Adiciona uma função extra usando `baserepo.Domain` — o import precisa
+	// sobreviver ao prune mesmo após a interface Repository sair.
 	appendToDomainFile(t, filepath.Join(root, rel),
-		"\nfunc UsedFilter() filters.Filters { return filters.Filters{} }\n")
+		"\nfunc UsedBaserepo() baserepo.Domain { return nil }\n")
 
 	if _, err := RepositoryUnport(RepositoryUnportOptions{Root: root, Domain: "Foo"}); err != nil {
 		t.Fatalf("RepositoryUnport: %v", err)
 	}
 	got := readFile(t, filepath.Join(root, rel))
 	mustContain(t, got,
-		`"zord/internal/application/providers/filters"`,
-		"func UsedFilter() filters.Filters",
+		`"zord/internal/application/providers/baserepo"`,
+		"func UsedBaserepo() baserepo.Domain",
 	)
-	mustNotContain(t, got,
-		`"zord/internal/repositories/base_repository"`,
-		"type Repository",
-	)
+	mustNotContain(t, got, "type Repository")
 }
 
 func TestRepositoryUnport_FailsIfNotPorted(t *testing.T) {
@@ -159,13 +148,18 @@ func TestRepositoryUnport_FailsIfMissingElement(t *testing.T) {
 			wantInErr: "Schema",
 		},
 		{
-			name: "missing filters field",
+			name: "missing SoftDelete",
 			mutate: func(t *testing.T, root, rel string) {
 				path := filepath.Join(root, rel)
 				src := readFile(t, path)
-				rewriteDomainFile(t, path, strings.Replace(src, "filters *filters.Filters", "", 1))
+				idx := strings.Index(src, "func (f Foo) SoftDelete()")
+				if idx < 0 {
+					t.Fatalf("seed inválido")
+				}
+				end := strings.Index(src[idx:], "\n}")
+				rewriteDomainFile(t, path, src[:idx]+src[idx+end+2:])
 			},
-			wantInErr: "filters",
+			wantInErr: "SoftDelete",
 		},
 		{
 			name: "missing Repository interface",
@@ -263,14 +257,13 @@ func TestRepositoryUnport_RoundTrip(t *testing.T) {
 	}
 	mustNotContain(t, final,
 		"type Repository",
-		"filters *filters.Filters",
 		"func (f Foo) Schema()",
 	)
 }
 
 func TestRepositoryUnport_RemovesInterfaceWithCustomMethods(t *testing.T) {
-	// Caso `usage_record`: Repository com embed + métodos custom. A interface
-	// inteira deve ser removida; warning é responsabilidade do CLI (testado em
+	// Repository com embed + métodos custom. A interface inteira deve ser
+	// removida; warning é responsabilidade do CLI (testado em
 	// repositoryHasCustomMethods).
 	root := t.TempDir()
 	rel := portFoo(t, root, "Foo", false)
@@ -279,8 +272,8 @@ func TestRepositoryUnport_RemovesInterfaceWithCustomMethods(t *testing.T) {
 	path := filepath.Join(root, rel)
 	src := readFile(t, path)
 	src = strings.Replace(src,
-		"type Repository interface {\n\tbase_repository.BaseRepository[Foo]\n}",
-		"type Repository interface {\n\tbase_repository.BaseRepository[Foo]\n\tUpsertBatch(ctx context.Context, items []Foo) error\n}",
+		"type Repository interface {\n\tbaserepo.Repository[Foo]\n}",
+		"type Repository interface {\n\tbaserepo.Repository[Foo]\n\tUpsertBatch(ctx context.Context, items []Foo) error\n}",
 		1)
 	rewriteDomainFile(t, path, src)
 

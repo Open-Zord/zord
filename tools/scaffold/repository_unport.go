@@ -1,11 +1,10 @@
 // Package scaffold (área repository) — operação inversa de `repository port`.
 //
 // `repository unport` remove do arquivo do domínio tudo o que `repository port`
-// adicionou: métodos canônicos (Schema/GetFilters/SoftDelete/SetFilters), campo
-// não-exportado `filters`, interface `Repository`, e — em multi-tenant — campo
-// `client` e método `SetClient`. Imports residuais sem uso são removidos. Auto-
-// detecta multi-tenant pela presença simultânea do campo `client` e do método
-// `SetClient`; estado parcial é erro.
+// adicionou: métodos canônicos (Schema/SoftDelete), interface `Repository`, e
+// — em multi-tenant — campo `client` e método `SetClient`. Imports residuais
+// sem uso são removidos. Auto-detecta multi-tenant pela presença simultânea
+// do campo `client` e do método `SetClient`; estado parcial é erro.
 package scaffold
 
 import (
@@ -62,13 +61,12 @@ func RepositoryUnport(opts RepositoryUnportOptions) (string, error) {
 	}
 
 	// Mutação: métodos → campos → interface → imports.
-	methods := []string{"Schema", "GetFilters", "SoftDelete", "SetFilters"}
+	methods := []string{"Schema", "SoftDelete"}
 	if multiTenant {
 		methods = append(methods, "SetClient")
 	}
 	removeMethodsFromReceiver(file, opts.Domain, methods)
 
-	removeUnexportedField(st, "filters")
 	if multiTenant {
 		removeUnexportedField(st, "client")
 	}
@@ -101,7 +99,7 @@ func detectMultiTenant(file *ast.File, st *ast.StructType, domain string) (bool,
 // assertNoMissing valida que todos os elementos a remover existem. Permite
 // falhar antes de qualquer mutação, garantindo all-or-nothing.
 func assertNoMissing(file *ast.File, st *ast.StructType, domain string, multiTenant bool) error {
-	methods := []string{"Schema", "GetFilters", "SoftDelete", "SetFilters"}
+	methods := []string{"Schema", "SoftDelete"}
 	if multiTenant {
 		methods = append(methods, "SetClient")
 	}
@@ -111,9 +109,6 @@ func assertNoMissing(file *ast.File, st *ast.StructType, domain string, multiTen
 		}
 	}
 
-	if !hasUnexportedField(st, "filters") {
-		return fmt.Errorf("campo %s.filters ausente — domínio não está portado", domain)
-	}
 	if multiTenant && !hasUnexportedField(st, "client") {
 		return fmt.Errorf("campo %s.client ausente — domínio não está portado", domain)
 	}
@@ -193,7 +188,7 @@ func removeTypeDecl(file *ast.File, typeName string) {
 }
 
 // repositoryHasCustomMethods retorna true se a interface `Repository` em file
-// declara métodos custom além do embed `base_repository.BaseRepository[...]`.
+// declara métodos custom além do embed `baserepo.Repository[...]`.
 // Usado pelo CLI para emitir warning ao usuário (decisão KD3).
 func repositoryHasCustomMethods(file *ast.File) bool {
 	it := findRepositoryInterface(file)

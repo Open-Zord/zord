@@ -25,22 +25,22 @@ func TestRepositoryPort_HappyPath(t *testing.T) {
 	got := readFile(t, filepath.Join(root, rel))
 
 	mustContain(t, got,
-		`"zord/internal/application/providers/filters"`,
-		`"zord/internal/repositories/base_repository"`,
-		"filters *filters.Filters",
-		"func (f *Foo) SetFilters(",
+		`"zord/internal/application/providers/baserepo"`,
 		"func (f Foo) SoftDelete() string",
 		`return "deleted_at"`,
-		"func (f Foo) GetFilters() filters.Filters",
-		"if f.filters != nil",
-		"return *f.filters",
-		"return filters.Filters{}",
 		"func (f Foo) Schema() string",
 		`return "foos"`,
 		"type Repository interface",
-		"base_repository.BaseRepository[Foo]",
+		"baserepo.Repository[Foo]",
 	)
-	mustNotContain(t, got, "client string", "SetClient(")
+	mustNotContain(t, got,
+		"client string",
+		"SetClient(",
+		"filters",
+		"GetFilters",
+		"SetFilters",
+		"base_repository",
+	)
 }
 
 func TestRepositoryPort_MultiTenant(t *testing.T) {
@@ -54,14 +54,14 @@ func TestRepositoryPort_MultiTenant(t *testing.T) {
 	got := readFile(t, filepath.Join(root, rel))
 
 	mustContain(t, got,
-		"client  string",
-		"filters *filters.Filters",
+		"client string",
 		"func (f *Foo) SetClient(client string)",
 		"f.client = client",
 		"if f.client ==",
 		`return "foos"`,
 		`return f.client + "." + "foos"`,
 	)
+	mustNotContain(t, got, "filters", "GetFilters", "SetFilters")
 }
 
 func TestRepositoryPort_TableOverride(t *testing.T) {
@@ -101,19 +101,9 @@ func TestRepositoryPort_FailsIfMethodAlreadyExists(t *testing.T) {
 			wantInErr: "Schema",
 		},
 		{
-			name:      "GetFilters",
-			extraSrc:  "\nimport \"zord/internal/application/providers/filters\"\nfunc (f Foo) GetFilters() filters.Filters { return filters.Filters{} }\n",
-			wantInErr: "GetFilters",
-		},
-		{
 			name:      "SoftDelete",
 			extraSrc:  "\nfunc (f Foo) SoftDelete() string { return \"\" }\n",
 			wantInErr: "SoftDelete",
-		},
-		{
-			name:      "SetFilters",
-			extraSrc:  "\nimport \"zord/internal/application/providers/filters\"\nfunc (f *Foo) SetFilters(_ *filters.Filters) {}\n",
-			wantInErr: "SetFilters",
 		},
 	}
 	for _, tc := range cases {
@@ -148,21 +138,6 @@ func TestRepositoryPort_FailsIfSetClientAlreadyExistsMultiTenant(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "SetClient") {
 		t.Errorf("erro %q não menciona SetClient", err.Error())
-	}
-}
-
-func TestRepositoryPort_FailsIfFiltersFieldAlreadyExists(t *testing.T) {
-	root := t.TempDir()
-	rel := seedDomain(t, root, "Foo")
-	rewriteDomainFile(t, filepath.Join(root, rel),
-		"package foo\n\ntype Foo struct {\n\tfilters int\n}\n")
-
-	_, err := RepositoryPort(RepositoryPortOptions{Root: root, Domain: "Foo"})
-	if err == nil {
-		t.Fatalf("RepositoryPort: esperado erro, got nil")
-	}
-	if !strings.Contains(err.Error(), "filters") {
-		t.Errorf("erro %q não menciona filters", err.Error())
 	}
 }
 
