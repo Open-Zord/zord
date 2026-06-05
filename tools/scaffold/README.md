@@ -599,12 +599,10 @@ forma isolada.
 Patcha o arquivo do domínio em `internal/application/domain/<snake>/<snake>.go`
 adicionando:
 
-- métodos `Schema()`, `GetFilters()`, `SoftDelete()` que satisfazem a constraint
-  `base_repository.Domain`;
-- setter `SetFilters(*filters.Filters)`;
-- campo não-exportado `filters *filters.Filters` ao final da struct;
-- interface `Repository` embedando `base_repository.BaseRepository[<Domain>]`;
-- imports necessários (`providers/filters`, `repositories/base_repository`).
+- métodos `Schema()`, `SoftDelete()` que satisfazem a constraint
+  `baserepo.Domain`;
+- interface `Repository` embedando `baserepo.Repository[<Domain>]`;
+- import necessário (`providers/baserepo`).
 
 Com `--multi-tenant` adiciona também o campo `client string`, o setter
 `SetClient(string)` e o prefixo `client + "."` em `Schema()`.
@@ -612,8 +610,7 @@ Com `--multi-tenant` adiciona também o campo `client string`, o setter
 Nome da tabela: default `snake_case(Domain) + "s"`, override via `--table`.
 
 **Idempotência:** o comando checa todos os elementos antes de mutar e falha
-em qualquer duplicado — `Schema` pré-existente, `filters` pré-existente,
-`Repository` pré-existente, etc. Em caso de falha, o arquivo não é
+em qualquer duplicado — `Schema` pré-existente, `Repository` pré-existente, etc. Em caso de falha, o arquivo não é
 modificado. Re-rodar exige remover manualmente o que conflita.
 
 ### `scaffold repository unport <Domain>` — desfaz o port
@@ -621,8 +618,7 @@ modificado. Re-rodar exige remover manualmente o que conflita.
 Operação inversa de `repository port`. Edita o arquivo do domínio via AST
 removendo tudo que `port` enxertou:
 
-- métodos `Schema`, `GetFilters`, `SoftDelete`, `SetFilters`;
-- campo não-exportado `filters`;
+- métodos `Schema`, `SoftDelete`;
 - interface `Repository`;
 - em multi-tenant: campo `client` e método `SetClient`;
 - imports residuais sem uso (preservados quando outra função no arquivo ainda
@@ -633,7 +629,7 @@ e `SetClient` ativa o modo multi-tenant; presença de só um dos dois é erro
 explícito de "estado inconsistente".
 
 **Idempotência:** falha se qualquer elemento esperado estiver ausente
-(`Schema`, `filters`, `Repository`, etc.). Em caso de falha, o arquivo não é
+(`Schema`, `SoftDelete`, `Repository`, etc.). Em caso de falha, o arquivo não é
 modificado. Re-rodar `unport` num domínio já não-portado é erro intencional —
 o comando não é no-op.
 

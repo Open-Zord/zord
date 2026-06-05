@@ -27,6 +27,7 @@ func registerTools(s *mcpsdk.Server, repo string) {
 	registerDerive(s, repo)
 	registerRepository(s, repo)
 	registerService(s, repo)
+	registerRequest(s, repo)
 	registerHandler(s, repo)
 	registerRoute(s, repo)
 	registerProjection(s, repo)

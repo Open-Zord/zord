@@ -29,9 +29,8 @@ func newRepositoryPortCmd() *cobra.Command {
 		Use:   "port <Domain>",
 		Short: "Adiciona ao arquivo do domínio os métodos e a interface Repository",
 		Long: `Patcha o arquivo do domínio com:
-  - métodos Schema/GetFilters/SoftDelete que satisfazem base_repository.Domain
-  - setter SetFilters e campo filters *filters.Filters
-  - interface Repository embedando base_repository.BaseRepository[<Domain>]
+  - métodos Schema/SoftDelete que satisfazem baserepo.Domain
+  - interface Repository embedando baserepo.Repository[<Domain>]
   - imports necessários
 
 Com --multi-tenant adiciona também o campo client, SetClient e o prefix em Schema().
@@ -62,8 +61,7 @@ func newRepositoryUnportCmd() *cobra.Command {
 		Long: `Operação inversa de ` + "`scaffold repository port`" + `. Edita o arquivo do
 domínio em internal/application/domain/<snake>/<snake>.go removendo via AST:
 
-  - métodos Schema/GetFilters/SoftDelete/SetFilters
-  - campo não-exportado filters *filters.Filters
+  - métodos Schema/SoftDelete
   - interface Repository
   - imports que ficarem sem uso
 
@@ -72,7 +70,7 @@ parcial (só um dos dois) é erro.
 
 Falha se o domínio não estiver portado (any elemento ausente), sem mutar disco.
 
-Se a interface Repository tiver métodos custom (além do embed BaseRepository),
+Se a interface Repository tiver métodos custom (além do embed baserepo.Repository),
 ela é removida inteira e um aviso é emitido no stderr — o dev re-decide o que
 fazer com os métodos descartados.`,
 		Args: cobra.ExactArgs(1),

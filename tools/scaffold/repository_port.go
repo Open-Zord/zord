@@ -1,7 +1,7 @@
 // Package scaffold (área repository) entrega o scaffold do adapter sqlx do domínio.
 // `repository port` patcha o arquivo do domínio com os métodos e a interface
-// que satisfazem base_repository.BaseRepository[T]; `repository create` gera
-// o arquivo do repositório concreto que embeda *base_repository.BaseRepo[T].
+// que satisfazem baserepo.Domain; `repository create` gera o arquivo do
+// repositório concreto que embeda *base_repository.BaseRepo[T].
 package scaffold
 
 import (
@@ -29,11 +29,9 @@ type RepositoryPortOptions struct {
 }
 
 // RepositoryPort adiciona ao arquivo do domínio os métodos da constraint
-// base_repository.Domain (Schema, GetFilters, SoftDelete), o setter
-// SetFilters, o campo não-exportado `filters`, a interface Repository
-// embedando base_repository.BaseRepository[<Domain>], e os imports
-// correspondentes. Se MultiTenant, adiciona também o campo `client`,
-// SetClient e o prefix em Schema().
+// baserepo.Domain (Schema, SoftDelete), a interface Repository embedando
+// baserepo.Repository[<Domain>], e os imports correspondentes. Se MultiTenant,
+// adiciona também o campo `client`, SetClient e o prefix em Schema().
 //
 // Falha imediatamente — sem aplicar nada — se qualquer um dos elementos a
 // gerar já existir no arquivo. Re-rodar exige limpeza manual.
@@ -74,7 +72,6 @@ func RepositoryPort(opts RepositoryPortOptions) (string, error) {
 	if opts.MultiTenant {
 		appendUnexportedField(st, "client", Ident("string"))
 	}
-	appendUnexportedField(st, "filters", StarOf(Sel("filters", "Filters")))
 
 	decls := buildPortDecls(receiver, opts.Domain, table, opts.MultiTenant)
 	padder := NewLinePadder(fset, "scaffold-repository-port")
@@ -85,8 +82,7 @@ func RepositoryPort(opts RepositoryPortOptions) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	astutil.AddImport(fset, file, imp.join(filtersImportSubpath))
-	astutil.AddImport(fset, file, imp.join(baseRepositoryImportSubpath))
+	astutil.AddImport(fset, file, imp.join(baserepoImportSubpath))
 
 	if err := writeFile(absFile, fset, file); err != nil {
 		return "", err
@@ -98,7 +94,7 @@ func RepositoryPort(opts RepositoryPortOptions) (string, error) {
 // existe no arquivo. A checagem é feita antes de qualquer mutação para que
 // uma falha não deixe o arquivo em estado intermediário.
 func assertNoConflicts(file *ast.File, st *ast.StructType, opts RepositoryPortOptions) error {
-	methods := []string{"Schema", "GetFilters", "SoftDelete", "SetFilters"}
+	methods := []string{"Schema", "SoftDelete"}
 	if opts.MultiTenant {
 		methods = append(methods, "SetClient")
 	}
@@ -108,9 +104,6 @@ func assertNoConflicts(file *ast.File, st *ast.StructType, opts RepositoryPortOp
 		}
 	}
 
-	if hasUnexportedField(st, "filters") {
-		return fmt.Errorf("campo %s.filters já existe", opts.Domain)
-	}
 	if opts.MultiTenant && hasUnexportedField(st, "client") {
 		return fmt.Errorf("campo %s.client já existe", opts.Domain)
 	}
@@ -127,11 +120,10 @@ func appendUnexportedField(st *ast.StructType, fieldName string, typ ast.Expr) {
 
 // buildPortDecls constrói, via AST puro, os Decls a anexar ao arquivo do
 // domínio: setters (pointer receivers), métodos da constraint (value
-// receivers) e a interface Repository. Ordem mimica usage_record.go:
-// SetClient → SetFilters → SoftDelete → GetFilters → Schema → interface.
+// receivers) e a interface Repository. Ordem: SetClient → SoftDelete →
+// Schema → interface.
 func buildPortDecls(receiver, domain, table string, multiTenant bool) []ast.Decl {
 	stringResult := FieldList(AnonField(Ident("string")))
-	filtersType := Sel("filters", "Filters")
 
 	var decls []ast.Decl
 
@@ -146,15 +138,6 @@ func buildPortDecls(receiver, domain, table string, multiTenant bool) []ast.Decl
 		))
 	}
 
-	// func (r *Domain) SetFilters(f *filters.Filters) { r.filters = f }
-	decls = append(decls, FuncDecl(
-		PointerReceiver(receiver, domain),
-		"SetFilters",
-		FieldList(Field("f", StarOf(filtersType))),
-		nil,
-		[]ast.Stmt{Assign(Sel(receiver, "filters"), Ident("f"))},
-	))
-
 	// func (r Domain) SoftDelete() string { return "deleted_at" }
 	decls = append(decls, FuncDecl(
 		ValueReceiver(receiver, domain),
@@ -162,24 +145,6 @@ func buildPortDecls(receiver, domain, table string, multiTenant bool) []ast.Decl
 		nil,
 		stringResult,
 		[]ast.Stmt{ReturnStmt(StrLit("deleted_at"))},
-	))
-
-	// func (r Domain) GetFilters() filters.Filters {
-	//     if r.filters != nil { return *r.filters }
-	//     return filters.Filters{}
-	// }
-	decls = append(decls, FuncDecl(
-		ValueReceiver(receiver, domain),
-		"GetFilters",
-		nil,
-		FieldList(AnonField(Sel("filters", "Filters"))),
-		[]ast.Stmt{
-			IfStmt(
-				Binary(token.NEQ, Sel(receiver, "filters"), Ident("nil")),
-				[]ast.Stmt{ReturnStmt(StarOf(Sel(receiver, "filters")))},
-			),
-			ReturnStmt(CompositeLit(Sel("filters", "Filters"))),
-		},
 	))
 
 	// func (r Domain) Schema() string { ... }
@@ -206,10 +171,10 @@ func buildPortDecls(receiver, domain, table string, multiTenant bool) []ast.Decl
 		schemaBody,
 	))
 
-	// type Repository interface { base_repository.BaseRepository[Domain] }
+	// type Repository interface { baserepo.Repository[Domain] }
 	decls = append(decls, TypeDecl("Repository", &ast.InterfaceType{
 		Methods: FieldList(AnonField(
-			IndexExpr(Sel("base_repository", "BaseRepository"), Ident(domain)),
+			IndexExpr(Sel("baserepo", "Repository"), Ident(domain)),
 		)),
 	}))
 

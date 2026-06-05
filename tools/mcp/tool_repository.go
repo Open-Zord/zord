@@ -60,7 +60,7 @@ func registerRepository(s *mcpsdk.Server, repo string) {
 
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "scaffold_repository_port",
-		Description: "Edita o arquivo do domínio adicionando métodos/interface que satisfazem base_repository.BaseRepository[T].",
+		Description: "Edita o arquivo do domínio adicionando métodos/interface que satisfazem baserepo.Repository[T].",
 		Annotations: writingAnnotations("Scaffold: port do repository no domain"),
 	}, func(_ context.Context, _ *mcpsdk.CallToolRequest, in repositoryPortInput) (*mcpsdk.CallToolResult, CommonOutput, error) {
 		target, err := effectiveRepo(in.Repo, repo)
@@ -143,7 +143,7 @@ func registerRepositoryInverse(s *mcpsdk.Server, repo string) {
 
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "scaffold_repository_unport",
-		Description: "Edita o arquivo do domínio removendo port + métodos que satisfazem base_repository.BaseRepository[T] (inverso de scaffold_repository_port).",
+		Description: "Edita o arquivo do domínio removendo port + métodos que satisfazem baserepo.Repository[T] (inverso de scaffold_repository_port).",
 		Annotations: writingAnnotations("Scaffold: unport do repository no domain"),
 	}, func(_ context.Context, _ *mcpsdk.CallToolRequest, in repositoryUnportInput) (*mcpsdk.CallToolResult, CommonOutput, error) {
 		target, err := effectiveRepo(in.Repo, repo)
