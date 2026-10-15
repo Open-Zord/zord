@@ -45,9 +45,8 @@ func TestHandlerCreate_HappyPath(t *testing.T) {
 		"if err := c.Bind(&data); err != nil",
 		"return httperr.RespondBadRequest(c, err.Error())",
 		"req := login.NewRequest(&data)",
-		"if err := h.svc.Execute(c.Request().Context(), req); err != nil",
+		"out, err := h.svc.Execute(c.Request().Context(), req)",
 		"return httperr.Respond(c, err)",
-		"out, _ := h.svc.GetResponse()",
 		"return c.JSON(http.StatusOK, out)",
 	)
 	mustNotContain(t, got,
@@ -57,6 +56,7 @@ func TestHandlerCreate_HappyPath(t *testing.T) {
 		"login.Output",
 		"RespondServiceError",
 		"*services.Error",
+		"h.svc.GetResponse()",
 	)
 }
 
@@ -111,8 +111,8 @@ func TestHandlerCreate_CompoundNames(t *testing.T) {
 		"func (h *ExportHandler) Handle(c echo.Context) error",
 		"var data export.Data",
 		"req := export.NewRequest(&data)",
-		"if err := h.svc.Execute(c.Request().Context(), req); err != nil",
-		"out, _ := h.svc.GetResponse()",
+		"out, err := h.svc.Execute(c.Request().Context(), req)",
+		"return c.JSON(http.StatusOK, out)",
 	)
 }
 

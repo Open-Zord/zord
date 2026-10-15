@@ -29,7 +29,7 @@ func newServiceCreateCmd() *cobra.Command {
   - structs Input e Output vazias (dev preenche depois)
   - Service embedando services.BaseService
   - NewService(logger, idCreator) — sem injeção automática de ports do domínio
-  - Execute(ctx, *Request) error e GetResponse() (*Response, error) — falhas via services.AppError
+  - Execute(ctx, *Request) (*Response, error) — falhas via apperror.AppError
 
 O foco é estrutural: o dev adiciona dependências do domínio à mão.
 Exige o arquivo do domínio existir e conter a struct <Domain>.

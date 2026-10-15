@@ -14,7 +14,6 @@ const RegistryKey = "editService"
 // Service executa o use case Edit.
 type Service struct {
 	baseservice.BaseService
-	response *Response
 }
 
 // NewService constrói o Service com suas dependências.
@@ -25,15 +24,9 @@ func NewService(logger baseservice.Logger, idCreator baseservice.IdCreator) *Ser
 }
 
 // Execute roda o use case Edit.
-func (s *Service) Execute(_ context.Context, request *Request) error {
+func (s *Service) Execute(_ context.Context, request *Request) (*Response, error) {
 	if err := request.Validate(); err != nil {
-		return apperror.NewInvalid(err.Error())
+		return nil, apperror.NewInvalid(err.Error())
 	}
-	s.response = &Response{}
-	return nil
-}
-
-// GetResponse devolve a resposta produzida pelo Execute.
-func (s *Service) GetResponse() (*Response, error) {
-	return s.response, nil
+	return &Response{}, nil
 }
