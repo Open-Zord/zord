@@ -34,7 +34,7 @@ func (c *Config) ReadNumberConfig(Key string) int {
 	}
 	config, err := strconv.Atoi(env)
 	if err != nil {
-		panic(fmt.Sprintf("[Config] Jwt Expiration (minutes) must be integer: %v", Key))
+		panic(fmt.Sprintf("[Config] environment variable must be an integer: %v", Key))
 	}
 	return config
 }

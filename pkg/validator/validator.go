@@ -99,7 +99,7 @@ func (v *Validator) ValidateStruct(modelData any) []error {
 }
 
 func (v *Validator) translateError(errorData *ErrorResponse) error {
-	var message string = "The :attribute with :values is not valid."
+	message := "The :attribute with :values is not valid."
 
 	if v, ok := v.validationMessages[errorData.Tag]; ok {
 		message = v

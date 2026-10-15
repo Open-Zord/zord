@@ -122,7 +122,7 @@ func (m *Migrator) Generate(schemaName string, database string) {
 		fmt.Printf("failed to inspect schema: %v", err)
 		return
 	}
-	err = os.WriteFile("schemas/"+schemaName+".my.hcl", []byte(res), 0755)
+	err = os.WriteFile("schemas/"+schemaName+".my.hcl", []byte(res), 0o600)
 	if err != nil {
 		fmt.Println(err)
 		return

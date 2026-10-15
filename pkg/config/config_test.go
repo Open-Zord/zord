@@ -16,8 +16,7 @@ func TestNewConfig(t *testing.T) {
 func TestReadConfig(t *testing.T) {
 	key := "TEST_KEY"
 	value := "test_value"
-	os.Setenv(key, value)
-	defer os.Unsetenv(key)
+	t.Setenv(key, value)
 
 	c := NewConfig()
 	result := c.ReadConfig(key)
@@ -28,8 +27,7 @@ func TestReadConfig(t *testing.T) {
 func TestReadNumberConfig(t *testing.T) {
 	key := "TEST_NUMBER_KEY"
 	value := "42"
-	os.Setenv(key, value)
-	defer os.Unsetenv(key)
+	t.Setenv(key, value)
 
 	c := NewConfig()
 	result := c.ReadNumberConfig(key)
@@ -40,8 +38,7 @@ func TestReadNumberConfig(t *testing.T) {
 func TestReadArrayConfig(t *testing.T) {
 	key := "TEST_ARRAY_KEY"
 	value := "value1,value2,value3"
-	os.Setenv(key, value)
-	defer os.Unsetenv(key)
+	t.Setenv(key, value)
 
 	c := NewConfig()
 	result := c.ReadArrayConfig(key)
@@ -56,7 +53,7 @@ func TestLoadEnvsForEntrypoint_DotEnvWins(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, ".env"), "TEST_LOADENVS_KEY=fromDotEnv\n")
 	writeFile(t, filepath.Join(root, ".env.worker"), "TEST_LOADENVS_KEY=fromDotEnvWorker\n")
-	defer os.Unsetenv("TEST_LOADENVS_KEY")
+	defer func() { _ = os.Unsetenv("TEST_LOADENVS_KEY") }()
 
 	withCwd(t, root, func() {
 		c := NewConfig()
@@ -72,7 +69,7 @@ func TestLoadEnvsForEntrypoint_DotEnvWins(t *testing.T) {
 func TestLoadEnvsForEntrypoint_PerEntrypointFallback(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, ".env.worker"), "TEST_LOADENVS_KEY=fromDotEnvWorker\n")
-	defer os.Unsetenv("TEST_LOADENVS_KEY")
+	defer func() { _ = os.Unsetenv("TEST_LOADENVS_KEY") }()
 
 	withCwd(t, root, func() {
 		c := NewConfig()
@@ -99,7 +96,7 @@ func TestLoadEnvsForEntrypoint_NoFilesNoError(t *testing.T) {
 func TestLoadEnvsForEntrypoint_EmptyName(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, ".env.worker"), "TEST_LOADENVS_KEY=fromDotEnvWorker\n")
-	defer os.Unsetenv("TEST_LOADENVS_KEY")
+	defer func() { _ = os.Unsetenv("TEST_LOADENVS_KEY") }()
 
 	withCwd(t, root, func() {
 		c := NewConfig()
@@ -115,8 +112,7 @@ func TestLoadEnvsForEntrypoint_EmptyName(t *testing.T) {
 func TestLoadEnvsForEntrypoint_SystemEnvWins(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, ".env"), "TEST_LOADENVS_KEY=fromDotEnv\n")
-	os.Setenv("TEST_LOADENVS_KEY", "fromSystem")
-	defer os.Unsetenv("TEST_LOADENVS_KEY")
+	t.Setenv("TEST_LOADENVS_KEY", "fromSystem")
 
 	withCwd(t, root, func() {
 		c := NewConfig()
