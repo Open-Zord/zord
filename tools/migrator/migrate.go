@@ -31,7 +31,7 @@ func (m *Migrator) MigrateAllDomains(Tenant string) {
 		fmt.Printf("failed to load working directory: %v", err)
 		return
 	}
-	defer workdir.Close()
+	defer func() { _ = workdir.Close() }()
 
 	client, err := atlasexec.NewClient(workdir.Path(), "atlas")
 	if err != nil {
@@ -77,7 +77,7 @@ func (m *Migrator) Inspect() {
 		fmt.Printf("failed to load working directory: %v", err)
 		return
 	}
-	defer workdir.Close()
+	defer func() { _ = workdir.Close() }()
 
 	client, err := atlasexec.NewClient(workdir.Path(), "atlas")
 	if err != nil {
@@ -104,7 +104,7 @@ func (m *Migrator) Generate(schemaName string, database string) {
 		fmt.Printf("failed to load working directory: %v", err)
 		return
 	}
-	defer workdir.Close()
+	defer func() { _ = workdir.Close() }()
 
 	client, err := atlasexec.NewClient(workdir.Path(), "atlas")
 	if err != nil {
@@ -122,7 +122,7 @@ func (m *Migrator) Generate(schemaName string, database string) {
 		fmt.Printf("failed to inspect schema: %v", err)
 		return
 	}
-	err = os.WriteFile("schemas/"+schemaName+".my.hcl", []byte(res), 0755)
+	err = os.WriteFile("schemas/"+schemaName+".my.hcl", []byte(res), 0o600)
 	if err != nil {
 		fmt.Println(err)
 		return

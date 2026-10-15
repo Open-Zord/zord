@@ -58,21 +58,16 @@ func TestServiceCreate_HappyPath(t *testing.T) {
 		"// Service executa o use case Login.",
 		"type Service struct {",
 		"baseservice.BaseService",
-		"response *Response",
 		"// NewService constrói o Service com suas dependências.",
 		"func NewService(logger baseservice.Logger, idCreator baseservice.IdCreator) *Service",
 		"BaseService: baseservice.BaseService{Logger: logger, Ulid: idCreator}",
 		"// Execute roda o use case Login.",
-		"func (s *Service) Execute(_ context.Context, request *Request) error",
+		"func (s *Service) Execute(_ context.Context, request *Request) (*Response, error)",
 		"if err := request.Validate(); err != nil",
-		"return apperror.NewInvalid(err.Error())",
-		"s.response = &Response{}",
-		"return nil",
-		"// GetResponse devolve a resposta produzida pelo Execute.",
-		"func (s *Service) GetResponse() (*Response, error)",
-		"return s.response, nil",
+		"return nil, apperror.NewInvalid(err.Error())",
+		"return &Response{}, nil",
 	)
-	mustNotContain(t, gotSvc, "*services.Error", "s.BadRequest", "s.Error")
+	mustNotContain(t, gotSvc, "*services.Error", "s.BadRequest", "s.Error", "response *Response", "GetResponse", "s.response")
 
 	gotResp := readFile(t, filepath.Join(root, paths[2]))
 	mustContain(t, gotResp,

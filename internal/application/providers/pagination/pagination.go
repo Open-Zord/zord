@@ -6,7 +6,7 @@ import (
 )
 
 type IPaginationProvider[Row any] interface {
-	PaginationHandler(row Row, page int, limit int) (error, *Pagination[Row])
+	PaginationHandler(row Row, page int, limit int) (*Pagination[Row], error)
 }
 
 type Pagination[Row any] struct {
@@ -35,33 +35,37 @@ func NewPaginationProvider[Row Domain](repo IPaginationRepository[Row]) *Provide
 	}
 }
 
-func (pp *Provider[Row]) PaginationHandler(row Row, page int, limit int) (error, *Pagination[Row]) {
+func (pp *Provider[Row]) PaginationHandler(row Row, page int, limit int) (*Pagination[Row], error) {
+	if limit <= 0 {
+		return nil, errors.New("pagination: limit must be positive")
+	}
+
 	listData := &[]Row{}
 	offset := (page - 1) * limit
 	total, err := pp.repo.Count(row)
 	if err != nil {
-		return errors.New("error on pagination count"), nil
+		return nil, errors.New("error on pagination count")
 	}
 
 	if total == 0 {
-		return nil, &Pagination[Row]{
+		return &Pagination[Row]{
 			CurrentPage: page,
 			TotalPages:  0,
 			Data:        listData,
-		}
+		}, nil
 	}
 
 	totalPages := math.Ceil(float64(total) / float64(limit))
 	if page <= int(totalPages) {
 		listData, err = pp.repo.List(row, limit, offset)
 		if err != nil {
-			return errors.New("error on data list"), nil
+			return nil, errors.New("error on data list")
 		}
 	}
 
-	return nil, &Pagination[Row]{
+	return &Pagination[Row]{
 		CurrentPage: page,
 		TotalPages:  int64(totalPages),
 		Data:        listData,
-	}
+	}, nil
 }

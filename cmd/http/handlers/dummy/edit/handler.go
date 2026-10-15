@@ -32,9 +32,9 @@ func (h *EditHandler) Handle(c echo.Context) error {
 		return httperr.RespondBadRequest(c, err.Error())
 	}
 	req := edit.NewRequest(&data)
-	if err := h.svc.Execute(c.Request().Context(), req); err != nil {
+	out, err := h.svc.Execute(c.Request().Context(), req)
+	if err != nil {
 		return httperr.Respond(c, err)
 	}
-	out, _ := h.svc.GetResponse()
 	return c.JSON(http.StatusOK, out)
 }

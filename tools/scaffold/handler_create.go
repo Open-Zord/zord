@@ -434,10 +434,10 @@ func buildHandlerFile(snakeDomain, snakeService, service string, withValidator b
 //	        return httperr.RespondBadRequest(c, err.Error())
 //	    }
 //	    req := <servicePkg>.NewRequest(&data[, h.validator])
-//	    if err := h.svc.Execute(c.Request().Context(), req); err != nil {
+//	    out, err := h.svc.Execute(c.Request().Context(), req)
+//	    if err != nil {
 //	        return httperr.Respond(c, err)
 //	    }
-//	    out, _ := h.svc.GetResponse()
 //	    return c.JSON(http.StatusOK, out)
 //	}
 //
@@ -502,39 +502,27 @@ func buildHandleMethod(handlerType, service, servicePkg string, withValidator bo
 		Sel: Ident("Context"),
 	}}
 
-	// Execução do service: Execute retorna error. Falha vira a resposta de
-	// erro padrão via httperr.Respond (mapeia o AppError pra HTTP status).
-	executeIf := &ast.IfStmt{
-		Init: &ast.AssignStmt{
-			Lhs: []ast.Expr{Ident("err")},
-			Tok: token.DEFINE,
-			Rhs: []ast.Expr{&ast.CallExpr{
-				Fun: &ast.SelectorExpr{
-					X:   Sel("h", "svc"),
-					Sel: Ident("Execute"),
-				},
-				Args: []ast.Expr{ctxCall, Ident("req")},
-			}},
-		},
+	// Execução do service: Execute devolve (*Response, error). O out é
+	// serializado em sucesso; a falha vira a resposta de erro padrão via
+	// httperr.Respond (mapeia o AppError pra HTTP status).
+	execAssign := &ast.AssignStmt{
+		Lhs: []ast.Expr{Ident("out"), Ident("err")},
+		Tok: token.DEFINE,
+		Rhs: []ast.Expr{&ast.CallExpr{
+			Fun: &ast.SelectorExpr{
+				X:   Sel("h", "svc"),
+				Sel: Ident("Execute"),
+			},
+			Args: []ast.Expr{ctxCall, Ident("req")},
+		}},
+	}
+	errIf := &ast.IfStmt{
 		Cond: Binary(token.NEQ, Ident("err"), Ident("nil")),
 		Body: &ast.BlockStmt{List: []ast.Stmt{
 			ReturnStmt(&ast.CallExpr{
 				Fun:  Sel("httperr", "Respond"),
 				Args: []ast.Expr{Ident("c"), Ident("err")},
 			}),
-		}},
-	}
-
-	// Recupera a resposta produzida pelo Execute; o erro já foi tratado acima,
-	// então é descartado aqui.
-	getRespAssign := &ast.AssignStmt{
-		Lhs: []ast.Expr{Ident("out"), Ident("_")},
-		Tok: token.DEFINE,
-		Rhs: []ast.Expr{&ast.CallExpr{
-			Fun: &ast.SelectorExpr{
-				X:   Sel("h", "svc"),
-				Sel: Ident("GetResponse"),
-			},
 		}},
 	}
 
@@ -549,7 +537,7 @@ func buildHandleMethod(handlerType, service, servicePkg string, withValidator bo
 		"Handle",
 		FieldList(Field("c", Sel("echo", "Context"))),
 		FieldList(AnonField(Ident("error"))),
-		[]ast.Stmt{dataDecl, bindIf, reqAssign, executeIf, getRespAssign, returnJSON},
+		[]ast.Stmt{dataDecl, bindIf, reqAssign, execAssign, errIf, returnJSON},
 	)
 	handle.Doc = singleComment(fmt.Sprintf("// Handle executa o use case %s.", service))
 	return handle

@@ -21,12 +21,9 @@ func TestRequestValidatorSet_HappyPath(t *testing.T) {
 		"validator baseservice.Validator",
 		"func NewRequest(data *Data, validator baseservice.Validator) *Request",
 		"validator: validator",
-		"errs := r.validator.ValidateStruct(r.Data)",
-		"for _, err := range errs",
-		"if err != nil",
-		"return err",
-		"return nil",
+		"return r.validator.ValidateStruct(r.Data)",
 	)
+	mustNotContain(t, got, "for _, err := range errs")
 	if err := parseGoSrc([]byte(got)); err != nil {
 		t.Fatalf("request.go inválido após set: %v\n%s", err, got)
 	}

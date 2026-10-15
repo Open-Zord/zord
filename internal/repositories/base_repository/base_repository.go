@@ -33,14 +33,21 @@ type BaseRepo[dom Domain] struct {
 }
 
 func NewBaseRepository[dom Domain](mysql *sqlx.DB) *BaseRepo[dom] {
-	do := new(dom)
-	listFields := []string{}
-	fields := structs.Fields(&do)
-	for _, field := range fields {
+	do := new(dom) // *dom: ponteiro-para-struct é a forma esperada por structs.
+	if !structs.IsStruct(do) {
+		panic(fmt.Sprintf("base_repository: domínio %T não é struct", *do))
+	}
+	listFields := make([]string, 0)
+	for _, field := range structs.Fields(do) {
 		if !field.IsExported() {
 			continue
 		}
 		tag := field.Tag("db")
+		if tag == "" {
+			// Campo exportado sem tag `db` não é coluna: ignora em vez de
+			// injetar um identificador vazio ("``") nas queries.
+			continue
+		}
 		listFields = append(listFields, tag)
 	}
 
@@ -48,6 +55,53 @@ func NewBaseRepository[dom Domain](mysql *sqlx.DB) *BaseRepo[dom] {
 		Mysql:  mysql,
 		fields: listFields,
 	}
+}
+
+// quoteIdent cita um identificador SQL (tabela ou coluna) com crases, escapando
+// crases internas. Identificadores não podem ir em placeholder ('?' só vale para
+// valores), então a proteção contra injeção por nome é citar o identificador e
+// — quando ele vem do chamador — validá-lo antes via columnAllowed.
+func quoteIdent(name string) string {
+	return "`" + strings.ReplaceAll(name, "`", "``") + "`"
+}
+
+// quoteIdents cita cada identificador da lista.
+func quoteIdents(names []string) []string {
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = quoteIdent(n)
+	}
+	return out
+}
+
+// columnAllowed reporta se name é uma das colunas conhecidas do domínio
+// (derivadas das tags `db`). É a defesa contra SQL injection por nome de coluna:
+// como colunas não podem ser parametrizadas, o field vindo do chamador é
+// rejeitado quando não pertence ao conjunto conhecido.
+func (repo *BaseRepo[Domain]) columnAllowed(name string) bool {
+	for _, f := range repo.fields {
+		if f == name {
+			return true
+		}
+	}
+	return false
+}
+
+// columnValues extrai os valores do struct de domínio num map keyed pela tag
+// `db`, para alimentar NamedExec sem interpolar valores na query.
+func (repo *BaseRepo[Domain]) columnValues(data *Domain) map[string]any {
+	out := make(map[string]any)
+	for _, f := range structs.Fields(data) {
+		if !f.IsExported() {
+			continue
+		}
+		tag := f.Tag("db")
+		if tag == "" {
+			continue
+		}
+		out[tag] = f.Value()
+	}
+	return out
 }
 
 func (repo *BaseRepo[Domain]) InitTX() (*sqlx.Tx, error) {
@@ -68,53 +122,50 @@ func (repo *BaseRepo[Domain]) Rollback(tx *sqlx.Tx, err error) error {
 }
 
 func (repo *BaseRepo[Domain]) Get(Data Domain, field string, value string) (*Domain, error) {
-	row := repo.Mysql.QueryRowx(
-		fmt.Sprintf(
-			"SELECT %s FROM %s WHERE %s = ?",
-			strings.Join(repo.fields, ", "),
-			Data.Schema(),
-			field,
-		),
-		value,
+	if !repo.columnAllowed(field) {
+		return nil, fmt.Errorf("get: coluna desconhecida %q", field)
+	}
+	query := fmt.Sprintf(
+		"SELECT %s FROM %s WHERE %s = ?",
+		strings.Join(quoteIdents(repo.fields), ", "),
+		quoteIdent(Data.Schema()),
+		quoteIdent(field),
 	)
-	err := row.StructScan(&Data)
-	if err != nil {
+	row := repo.Mysql.QueryRowx(query, value)
+	if err := row.StructScan(&Data); err != nil {
 		return nil, err
 	}
 	return &Data, nil
 }
 
 func (repo *BaseRepo[Domain]) Create(Data Domain, tx *sqlx.Tx, autoCommit bool) error {
-	namedValues := []string{}
+	namedValues := make([]string, 0, len(repo.fields))
 	for _, field := range repo.fields {
 		namedValues = append(namedValues, ":"+field)
 	}
 	res, err := tx.NamedExec(
 		fmt.Sprintf(
 			`INSERT INTO %s (%s) VALUES (%s)`,
-			Data.Schema(),
-			strings.Join(repo.fields, ", "),
+			quoteIdent(Data.Schema()),
+			strings.Join(quoteIdents(repo.fields), ", "),
 			strings.Join(namedValues, ", "),
 		),
 		Data,
 	)
-
 	if err != nil {
 		return repo.Rollback(tx, err)
 	}
 
 	affected, err := res.RowsAffected()
+	if err != nil {
+		return repo.Rollback(tx, err)
+	}
 	if affected < 1 {
 		return repo.Rollback(tx, errors.New("error on create, rows not affected"))
 	}
 
-	if err != nil {
-		return repo.Rollback(tx, err)
-	}
-
 	if autoCommit {
-		err = tx.Commit()
-		if err != nil {
+		if err := tx.Commit(); err != nil {
 			return repo.Rollback(tx, err)
 		}
 	}
@@ -127,144 +178,137 @@ func (repo *BaseRepo[Domain]) Create(Data Domain, tx *sqlx.Tx, autoCommit bool) 
 // medida no repositório do domínio (não há mais filtro dinâmico genérico).
 func (repo *BaseRepo[Domain]) List(Data Domain, limit int, offset int) (*[]Domain, error) {
 	var results []Domain
-	rows, err := repo.Mysql.Queryx(
-		fmt.Sprintf(
-			`SELECT %s FROM %s LIMIT %v OFFSET %v`,
-			strings.Join(repo.fields, ", "),
-			Data.Schema(),
-			limit,
-			offset,
-		),
+	query := fmt.Sprintf(
+		`SELECT %s FROM %s LIMIT ? OFFSET ?`,
+		strings.Join(quoteIdents(repo.fields), ", "),
+		quoteIdent(Data.Schema()),
 	)
+	rows, err := repo.Mysql.Queryx(query, limit, offset)
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
-		err := rows.StructScan(&Data)
-		if err != nil {
+		if err := rows.StructScan(&Data); err != nil {
 			return nil, err
 		}
 		results = append(results, Data)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return &results, nil
 }
 
 func (repo *BaseRepo[Domain]) Edit(Data Domain, field string, value string) (int, error) {
+	if !repo.columnAllowed(field) {
+		return 0, fmt.Errorf("edit: coluna desconhecida %q", field)
+	}
+
+	// Chave do valor de WHERE no map de named params. Prefixo improvável de
+	// colidir com uma tag `db` real do domínio.
+	const whereKey = "zord_where_value"
+	setClauses := make([]string, 0, len(repo.fields))
+	for _, f := range repo.fields {
+		setClauses = append(setClauses, quoteIdent(f)+" = :"+f)
+	}
+	args := repo.columnValues(&Data)
+	args[whereKey] = value
+	query := fmt.Sprintf(
+		"UPDATE %s SET %s WHERE %s = :%s",
+		quoteIdent(Data.Schema()),
+		strings.Join(setClauses, ", "),
+		quoteIdent(field),
+		whereKey,
+	)
+
 	tx, err := repo.Mysql.Beginx()
 	if err != nil {
 		return 0, err
 	}
 
-	namedValues := []string{}
-	for _, field := range repo.fields {
-		namedValues = append(namedValues, "`"+field+"`"+" = :"+field)
+	res, err := tx.NamedExec(query, args)
+	if err != nil {
+		return 0, repo.Rollback(tx, err)
 	}
 
-	query, args, bindErr := tx.BindNamed(
-		fmt.Sprintf(
-			`UPDATE %s SET %s WHERE %s = '%s'`,
-			Data.Schema(),
-			strings.Join(namedValues, ", "),
-			field,
-			value,
-		),
-		&Data,
-	)
-
-	if bindErr != nil {
-		return 0, repo.Rollback(tx, bindErr)
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return int(affected), repo.Rollback(tx, err)
 	}
-
-	res, execErr := repo.Mysql.Exec(query, args...)
-	if execErr != nil {
-		return 0, repo.Rollback(tx, execErr)
-	}
-
-	affected, rowsAffErr := res.RowsAffected()
-	if rowsAffErr != nil {
-		return int(affected), repo.Rollback(tx, rowsAffErr)
-	}
-
 	if affected < 1 {
-		repo.Rollback(tx, nil)
-		return int(affected), nil
+		return int(affected), repo.Rollback(tx, nil)
 	}
 
-	commitErr := repo.Commit(tx)
-	if commitErr != nil {
-		return int(affected), repo.Rollback(tx, commitErr)
+	if err := repo.Commit(tx); err != nil {
+		return int(affected), repo.Rollback(tx, err)
 	}
-
 	return int(affected), nil
 }
 
 func (repo *BaseRepo[Domain]) Delete(Data Domain, field string, value string) error {
+	if !repo.columnAllowed(field) {
+		return fmt.Errorf("delete: coluna desconhecida %q", field)
+	}
+
 	softDelete := Data.SoftDelete()
 	if softDelete != "" {
-		query, args, bindErr := repo.Mysql.BindNamed(
-			fmt.Sprintf(
-				`UPDATE %s SET %s = NOW() WHERE %s = ?`,
-				Data.Schema(),
-				softDelete,
-				field,
-			),
-			&Data,
+		query := fmt.Sprintf(
+			"UPDATE %s SET %s = NOW() WHERE %s = ?",
+			quoteIdent(Data.Schema()),
+			quoteIdent(softDelete),
+			quoteIdent(field),
 		)
-		if bindErr != nil {
-			return bindErr
-		}
-		exec, err := repo.Mysql.Exec(query, args...)
-		if err != nil {
-			return err
-		}
-		rowsAffected, err := exec.RowsAffected()
-		if rowsAffected < 1 {
-			return errors.New("nothing deleted")
-		}
-		return err
+		return repo.execDelete(query, value)
 	}
-	exec, err := repo.Mysql.Exec(
-		fmt.Sprintf(
-			`DELETE FROM %s WHERE %s = '%s'`,
-			Data.Schema(),
-			field,
-			value,
-		),
+
+	query := fmt.Sprintf(
+		"DELETE FROM %s WHERE %s = ?",
+		quoteIdent(Data.Schema()),
+		quoteIdent(field),
 	)
+	return repo.execDelete(query, value)
+}
+
+// execDelete roda um DELETE/soft-delete já montado (identificadores citados,
+// valor parametrizado) e trata "nada afetado" como erro.
+func (repo *BaseRepo[Domain]) execDelete(query string, value string) error {
+	res, err := repo.Mysql.Exec(query, value)
 	if err != nil {
 		return err
 	}
-	rowsAffected, err := exec.RowsAffected()
-	if rowsAffected < 1 {
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected < 1 {
 		return errors.New("nothing deleted")
 	}
-	return err
+	return nil
 }
 
 // Count devolve a contagem total de linhas da tabela do Domain. Sem WHERE:
 // counts filtrados viram métodos sob medida no repositório do domínio.
 func (repo *BaseRepo[Domain]) Count(Data Domain) (int64, error) {
 	var count int64
-	err := repo.Mysql.Get(&count, "SELECT count(1) FROM "+Data.Schema())
+	err := repo.Mysql.Get(&count, "SELECT count(1) FROM "+quoteIdent(Data.Schema()))
 	return count, err
 }
 
 func (repo *BaseRepo[Domain]) Search(Data Domain, field string, value string) (*[]Domain, error) {
-	var data []Domain
-	queryErr := repo.Mysql.Select(
-		&data,
-		fmt.Sprintf(
-			`SELECT %s FROM %s WHERE %s like ? LIMIT 25`,
-			strings.Join(repo.fields, ", "),
-			Data.Schema(),
-			field,
-		),
-		"%"+value+"%",
-	)
-	if queryErr != nil {
-		return nil, queryErr
+	if !repo.columnAllowed(field) {
+		return nil, fmt.Errorf("search: coluna desconhecida %q", field)
 	}
-
+	var data []Domain
+	query := fmt.Sprintf(
+		`SELECT %s FROM %s WHERE %s LIKE ? LIMIT 25`,
+		strings.Join(quoteIdents(repo.fields), ", "),
+		quoteIdent(Data.Schema()),
+		quoteIdent(field),
+	)
+	if err := repo.Mysql.Select(&data, query, "%"+value+"%"); err != nil {
+		return nil, err
+	}
 	return &data, nil
 }

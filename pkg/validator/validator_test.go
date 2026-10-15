@@ -31,9 +31,9 @@ func TestValidator_ValidateStruct_ValidData(t *testing.T) {
 	validator.Boot()
 
 	d := testStruct
-	errorsList := validator.ValidateStruct(d)
+	err := validator.ValidateStruct(d)
 
-	assert.Empty(t, errorsList)
+	assert.NoError(t, err)
 }
 
 func TestValidator_ValidateStruct_InvalidData(t *testing.T) {
@@ -41,9 +41,9 @@ func TestValidator_ValidateStruct_InvalidData(t *testing.T) {
 
 	d := testStruct
 	d.Required = ""
-	errorsList := validator.ValidateStruct(d)
+	err := validator.ValidateStruct(d)
 
-	assert.NotEmpty(t, errorsList)
+	assert.Error(t, err)
 }
 
 func TestValidator_translateError(t *testing.T) {

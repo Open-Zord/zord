@@ -4,9 +4,10 @@
 // `internal/application/services/<snake_domain>/<snake_verb>/`.
 //
 // A divisão segue o template zord: o `Request` agrega `Data` + validador
-// opcional; o `Service` consome um `*Request` via `Execute(ctx, *Request) error`
-// e expõe a saída por `GetResponse() (*Response, error)`; falhas viram
-// `services.AppError`; o `Response` é a struct de saída do use case.
+// opcional; o `Service` consome um `*Request` via
+// `Execute(ctx, *Request) (*Response, error)` — sem estado no Service, a
+// Response é retornada direto; falhas viram `apperror.AppError`; o `Response`
+// é a struct de saída do use case.
 //
 // O foco é estrutural: nenhum port do domínio é injetado automaticamente — o
 // dev adiciona dependências à mão depois (campos no Data via
@@ -43,8 +44,8 @@ type ServiceCreateOptions struct {
 //   - `request.go`: structs `Data` e `Request`, `NewRequest(data *Data)` e
 //     `Validate()` (no-op enquanto não há validador configurado).
 //   - `service.go`: `const RegistryKey`, struct `Service` embedando
-//     `services.BaseService`, `NewService(logger, idCreator)`,
-//     `Execute(ctx, *Request) error` e `GetResponse() (*Response, error)`.
+//     `services.BaseService`, `NewService(logger, idCreator)` e
+//     `Execute(ctx, *Request) (*Response, error)`.
 //   - `response.go`: struct `Response` vazia.
 //
 // Retorna os caminhos relativos dos três arquivos gerados, em ordem fixa:
@@ -238,17 +239,13 @@ func buildRequestFile(pkg, verb string) ([]byte, error) {
 //	// Service executa o use case <Verb>.
 //	type Service struct {
 //	    services.BaseService
-//	    response *Response
 //	}
 //
 //	// NewService constrói o Service com suas dependências.
 //	func NewService(logger services.Logger, idCreator services.IdCreator) *Service { ... }
 //
 //	// Execute roda o use case <Verb>.
-//	func (s *Service) Execute(_ context.Context, request *Request) error { ... }
-//
-//	// GetResponse devolve a resposta produzida pelo Execute.
-//	func (s *Service) GetResponse() (*Response, error) { ... }
+//	func (s *Service) Execute(_ context.Context, request *Request) (*Response, error) { ... }
 func buildServiceFile(pkg, verb string, imp importPaths) ([]byte, error) {
 	fset := token.NewFileSet()
 	padder := NewLinePadder(fset, "scaffold-service-create-service")
@@ -273,7 +270,6 @@ func buildServiceFile(pkg, verb string, imp importPaths) ([]byte, error) {
 	serviceStruct := &ast.StructType{
 		Fields: FieldList(
 			AnonField(Sel("baseservice", "BaseService")),
-			Field("response", StarOf(Ident("Response"))),
 		),
 	}
 	serviceDecl := TypeDecl("Service", serviceStruct)
@@ -307,8 +303,9 @@ func buildServiceFile(pkg, verb string, imp importPaths) ([]byte, error) {
 	newServiceDecl.Doc = singleComment("// NewService constrói o Service com suas dependências.")
 
 	// Body do Execute: roda Validate, em caso de erro devolve um AppError de
-	// categoria invalid; em sucesso atribui uma Response vazia ao campo interno
-	// e retorna nil.
+	// categoria invalid; em sucesso devolve uma Response vazia e nil. Sem
+	// estado no Service — a Response é retornada direto (reentrante, seguro
+	// sob concorrência quando o Service é singleton).
 	validateCall := &ast.CallExpr{Fun: &ast.SelectorExpr{X: Ident("request"), Sel: Ident("Validate")}}
 	validateIf := &ast.IfStmt{
 		Init: &ast.AssignStmt{
@@ -318,20 +315,21 @@ func buildServiceFile(pkg, verb string, imp importPaths) ([]byte, error) {
 		},
 		Cond: Binary(token.NEQ, Ident("err"), Ident("nil")),
 		Body: &ast.BlockStmt{List: []ast.Stmt{
-			ReturnStmt(&ast.CallExpr{
-				Fun: Sel("apperror", "NewInvalid"),
-				Args: []ast.Expr{
-					&ast.CallExpr{Fun: &ast.SelectorExpr{X: Ident("err"), Sel: Ident("Error")}},
+			ReturnStmt(
+				Ident("nil"),
+				&ast.CallExpr{
+					Fun: Sel("apperror", "NewInvalid"),
+					Args: []ast.Expr{
+						&ast.CallExpr{Fun: &ast.SelectorExpr{X: Ident("err"), Sel: Ident("Error")}},
+					},
 				},
-			}),
+			),
 		}},
 	}
-	respAssign := &ast.AssignStmt{
-		Lhs: []ast.Expr{&ast.SelectorExpr{X: Ident("s"), Sel: Ident("response")}},
-		Tok: token.ASSIGN,
-		Rhs: []ast.Expr{&ast.UnaryExpr{Op: token.AND, X: CompositeLit(Ident("Response"))}},
-	}
-	executeReturnNil := ReturnStmt(Ident("nil"))
+	executeReturnOK := ReturnStmt(
+		&ast.UnaryExpr{Op: token.AND, X: CompositeLit(Ident("Response"))},
+		Ident("nil"),
+	)
 	executeDecl := FuncDecl(
 		PointerReceiver("s", "Service"),
 		"Execute",
@@ -339,33 +337,18 @@ func buildServiceFile(pkg, verb string, imp importPaths) ([]byte, error) {
 			Field("_", Sel("context", "Context")),
 			Field("request", StarOf(Ident("Request"))),
 		),
-		FieldList(AnonField(Ident("error"))),
-		[]ast.Stmt{validateIf, respAssign, executeReturnNil},
-	)
-	executeDecl.Doc = singleComment(fmt.Sprintf("// Execute roda o use case %s.", verb))
-
-	// Return do GetResponse: devolve s.response e nil (o erro já foi
-	// sinalizado pelo Execute).
-	getRespReturn := ReturnStmt(
-		&ast.SelectorExpr{X: Ident("s"), Sel: Ident("response")},
-		Ident("nil"),
-	)
-	getResponseDecl := FuncDecl(
-		PointerReceiver("s", "Service"),
-		"GetResponse",
-		FieldList(),
 		FieldList(
 			AnonField(StarOf(Ident("Response"))),
 			AnonField(Ident("error")),
 		),
-		[]ast.Stmt{getRespReturn},
+		[]ast.Stmt{validateIf, executeReturnOK},
 	)
-	getResponseDecl.Doc = singleComment("// GetResponse devolve a resposta produzida pelo Execute.")
+	executeDecl.Doc = singleComment(fmt.Sprintf("// Execute roda o use case %s.", verb))
 
 	packageDoc := singleComment(fmt.Sprintf("// Package %s implementa o use case %s.", pkg, verb))
 
-	decls := []ast.Decl{imports, constDecl, serviceDecl, newServiceDecl, executeDecl, getResponseDecl}
-	stampedDecls := []ast.Decl{constDecl, serviceDecl, newServiceDecl, executeDecl, getResponseDecl}
+	decls := []ast.Decl{imports, constDecl, serviceDecl, newServiceDecl, executeDecl}
+	stampedDecls := []ast.Decl{constDecl, serviceDecl, newServiceDecl, executeDecl}
 
 	// Package doc primeiro (linha 1, antes do `package`).
 	packageDoc.List[0].Slash = padder.Take()
@@ -388,20 +371,12 @@ func buildServiceFile(pkg, verb string, imp importPaths) ([]byte, error) {
 	executeDecl.Type.Func = padder.Take()
 	executeDecl.Body.Lbrace = padder.Take()
 	// stmts internos: validateIf abre, return interno, fecha; depois o
-	// assignment da response e o return nil final.
+	// return (&Response{}, nil) final.
 	validateIf.If = padder.Take()
 	validateIf.Body.Lbrace = padder.Take()
 	validateIf.Body.Rbrace = padder.Take()
-	respAssign.TokPos = padder.Take()
-	executeReturnNil.Return = padder.Take()
+	executeReturnOK.Return = padder.Take()
 	executeDecl.Body.Rbrace = padder.Take()
-	padder.Gap(1)
-
-	stampDocPositions(padder, getResponseDecl.Doc)
-	getResponseDecl.Type.Func = padder.Take()
-	getResponseDecl.Body.Lbrace = padder.Take()
-	getRespReturn.Return = padder.Take()
-	getResponseDecl.Body.Rbrace = padder.Take()
 
 	file := &ast.File{
 		Doc:     packageDoc,

@@ -163,7 +163,7 @@ func findRequestStruct(file *ast.File) (*ast.StructType, error) {
 //
 // Quando withValidator=true a struct Request ganha o campo
 // `validator services.Validator`, o NewRequest recebe o parâmetro adicional e
-// o body de Validate passa a iterar sobre `r.validator.ValidateStruct(r.Data)`.
+// o body de Validate passa a retornar `r.validator.ValidateStruct(r.Data)`.
 func buildRequestFileWithFields(pkg, verb string, dataFields []*ast.Field, withValidator bool, imp importPaths) ([]byte, error) {
 	dataDecl := TypeDecl("Data", &ast.StructType{Fields: &ast.FieldList{List: dataFields}})
 	dataDecl.Doc = singleComment(fmt.Sprintf("// Data agrega os campos de entrada validáveis do use case %s.", verb))
@@ -282,20 +282,13 @@ func buildRequestFileWithFields(pkg, verb string, dataFields []*ast.Field, withV
 }
 
 // validatorValidateStmts monta o body de Validate quando o validator está
-// configurado:
+// configurado. Como ValidateStruct devolve um único error (agregado via
+// errors.Join), o body é um repasse direto:
 //
-//	errs := r.validator.ValidateStruct(r.Data)
-//	for _, err := range errs {
-//	    if err != nil {
-//	        return err
-//	    }
-//	}
-//	return nil
+//	return r.validator.ValidateStruct(r.Data)
 func validatorValidateStmts() []ast.Stmt {
-	errsAssign := &ast.AssignStmt{
-		Lhs: []ast.Expr{Ident("errs")},
-		Tok: token.DEFINE,
-		Rhs: []ast.Expr{&ast.CallExpr{
+	return []ast.Stmt{
+		ReturnStmt(&ast.CallExpr{
 			Fun: &ast.SelectorExpr{
 				X: &ast.SelectorExpr{
 					X:   Ident("r"),
@@ -304,25 +297,6 @@ func validatorValidateStmts() []ast.Stmt {
 				Sel: Ident("ValidateStruct"),
 			},
 			Args: []ast.Expr{&ast.SelectorExpr{X: Ident("r"), Sel: Ident("Data")}},
-		}},
-	}
-
-	ifErr := &ast.IfStmt{
-		Cond: Binary(token.NEQ, Ident("err"), Ident("nil")),
-		Body: &ast.BlockStmt{List: []ast.Stmt{ReturnStmt(Ident("err"))}},
-	}
-
-	rangeStmt := &ast.RangeStmt{
-		Key:   Ident("_"),
-		Value: Ident("err"),
-		Tok:   token.DEFINE,
-		X:     Ident("errs"),
-		Body:  &ast.BlockStmt{List: []ast.Stmt{ifErr}},
-	}
-
-	return []ast.Stmt{
-		errsAssign,
-		rangeStmt,
-		ReturnStmt(Ident("nil")),
+		}),
 	}
 }

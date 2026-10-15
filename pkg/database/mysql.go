@@ -50,9 +50,12 @@ func (m *MySql) Connect() {
 	}
 
 	conn, err := sqlx.Open("mysql", config.FormatDSN())
+	if err != nil {
+		log.Fatalln(err)
+	}
 	conn.SetMaxOpenConns(5)
 	conn.SetMaxIdleConns(3)
-	if err != nil {
+	if err := conn.Ping(); err != nil {
 		log.Fatalln(err)
 	}
 	m.Db = conn
