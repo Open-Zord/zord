@@ -5,6 +5,7 @@
 package httperr
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -38,18 +39,23 @@ func statusFor(kind string) int {
 	}
 }
 
-// Respond serializa um error de service para a resposta JSON padrão. Quando o
-// erro é um *apperror.AppError, o status vem do kind e o code é o genérico
-// derivado dele (strings.ToUpper(kind)). Qualquer outro error cai no fallback
-// INTERNAL/500.
+// Respond serializa um error de service para a resposta JSON padrão. Usa
+// errors.As, então um *apperror.AppError embrulhado com %w continua sendo
+// mapeado pelo kind. Erros de domínio (status < 500) devolvem o code derivado
+// do kind e a Message. Erros internos (kind internal, kind desconhecido ou
+// error cru) logam a causa via c.Logger() e devolvem uma resposta genérica,
+// sem vazar detalhe interno na API.
 func Respond(c echo.Context, err error) error {
-	//nolint:errorlint // services retornam *AppError diretamente, sem wrapping %w
-	if ae, ok := err.(*apperror.AppError); ok {
-		return c.JSON(statusFor(ae.Kind()), ErrorResponse{
-			Code:    strings.ToUpper(ae.Kind()),
-			Message: ae.Message,
-		})
+	var ae *apperror.AppError
+	if errors.As(err, &ae) {
+		if status := statusFor(ae.Kind()); status < http.StatusInternalServerError {
+			return c.JSON(status, ErrorResponse{
+				Code:    strings.ToUpper(ae.Kind()),
+				Message: ae.Message,
+			})
+		}
 	}
+	c.Logger().Error(err)
 	return c.JSON(http.StatusInternalServerError, ErrorResponse{
 		Code:    "INTERNAL",
 		Message: "erro interno",
