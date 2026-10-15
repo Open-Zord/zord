@@ -31,7 +31,7 @@ func modulePath(root string) (string, error) {
 		}
 		return "", fmt.Errorf("abrir go.mod: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {

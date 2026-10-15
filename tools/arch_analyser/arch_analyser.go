@@ -275,7 +275,7 @@ func ValidateLayerDependencies(root string) error {
 
 	for layer, allowedImports := range layerRules {
 		layerPath := layerPaths[layer]
-		filepath.Walk(layerPath, func(path string, info os.FileInfo, err error) error {
+		_ = filepath.Walk(layerPath, func(path string, info os.FileInfo, err error) error {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
 				return nil
 			}
@@ -851,7 +851,7 @@ func ValidateExternalPackagesUsage(root string) error {
 	}
 	var errors []string
 	for layer, path := range layerPaths {
-		filepath.Walk(path, func(fpath string, info os.FileInfo, err error) error {
+		_ = filepath.Walk(path, func(fpath string, info os.FileInfo, err error) error {
 			if err != nil || info.IsDir() || !strings.HasSuffix(fpath, ".go") {
 				return nil
 			}
