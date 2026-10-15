@@ -33,14 +33,21 @@ type BaseRepo[dom Domain] struct {
 }
 
 func NewBaseRepository[dom Domain](mysql *sqlx.DB) *BaseRepo[dom] {
-	do := new(dom)
-	listFields := []string{}
-	fields := structs.Fields(&do)
-	for _, field := range fields {
+	do := new(dom) // *dom: ponteiro-para-struct é a forma esperada por structs.
+	if !structs.IsStruct(do) {
+		panic(fmt.Sprintf("base_repository: domínio %T não é struct", *do))
+	}
+	listFields := make([]string, 0)
+	for _, field := range structs.Fields(do) {
 		if !field.IsExported() {
 			continue
 		}
 		tag := field.Tag("db")
+		if tag == "" {
+			// Campo exportado sem tag `db` não é coluna: ignora em vez de
+			// injetar um identificador vazio ("``") nas queries.
+			continue
+		}
 		listFields = append(listFields, tag)
 	}
 

@@ -14,6 +14,23 @@ type fakeDomain struct {
 func (fakeDomain) Schema() string     { return "fakes" }
 func (fakeDomain) SoftDelete() string { return "deleted_at" }
 
+// taggedDomain tem um campo exportado SEM tag `db` (NoTag) para exercitar o
+// filtro de tags vazias no construtor.
+type taggedDomain struct {
+	ID    string `db:"id"`
+	NoTag string // exportado, sem db -> não vira coluna
+	Name  string `db:"name"`
+}
+
+func (taggedDomain) Schema() string     { return "tagged" }
+func (taggedDomain) SoftDelete() string { return "" }
+
+// intDomain satisfaz Domain mas NÃO é struct — usado para o guard do construtor.
+type intDomain int
+
+func (intDomain) Schema() string     { return "ints" }
+func (intDomain) SoftDelete() string { return "" }
+
 // newFakeRepo constrói um BaseRepo com colunas conhecidas e sem *sqlx.DB — os
 // caminhos testados aqui rejeitam antes de qualquer acesso ao banco.
 func newFakeRepo() *BaseRepo[fakeDomain] {
@@ -69,6 +86,32 @@ func TestRejectsUnknownColumn(t *testing.T) {
 	if _, err := repo.Search(d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {
 		t.Errorf("Search: err = %v; want 'coluna desconhecida'", err)
 	}
+}
+
+// TestNewBaseRepository_IgnoresFieldsWithoutDBTag garante que o construtor não
+// transforma um campo exportado sem tag `db` numa coluna vazia (item #8).
+func TestNewBaseRepository_IgnoresFieldsWithoutDBTag(t *testing.T) {
+	repo := NewBaseRepository[taggedDomain](nil)
+	want := []string{"id", "name"}
+	if len(repo.fields) != len(want) {
+		t.Fatalf("fields = %v; want %v", repo.fields, want)
+	}
+	for i := range want {
+		if repo.fields[i] != want[i] {
+			t.Errorf("fields[%d] = %q; want %q", i, repo.fields[i], want[i])
+		}
+	}
+}
+
+// TestNewBaseRepository_PanicsOnNonStruct garante o fail-fast claro quando o
+// domínio satisfaz Domain mas não é struct (reflexão quebraria mais adiante).
+func TestNewBaseRepository_PanicsOnNonStruct(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("esperava panic para domínio não-struct")
+		}
+	}()
+	_ = NewBaseRepository[intDomain](nil)
 }
 
 func TestColumnValues(t *testing.T) {
