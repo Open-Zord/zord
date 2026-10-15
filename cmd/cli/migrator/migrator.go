@@ -26,39 +26,37 @@ func (m *Migrator) DeclareCommands(cmd *cobra.Command) {
 			Use:    "migrate",
 			Short:  "migrate HCL description database",
 			PreRun: m.BootMigrator,
-			Run:    m.Migrate,
+			RunE:   m.Migrate,
 		},
 		&cobra.Command{
 			Use:    "inspect",
 			Short:  "inspect HCL description database",
 			PreRun: m.BootMigrator,
-			Run:    m.Inspect,
+			RunE:   m.Inspect,
 		},
 		&cobra.Command{
 			Use:    "generate-schema-from-db",
 			Short:  "generate-schema-from-db <schema name> <database name>",
 			Long:   "generate HCL schema from connection on env \ngenerate all databases if <database name> is not provided (all databases generations does`nt work with domain generation from schema)",
 			PreRun: m.BootMigrator,
-			Run:    m.Generate,
+			RunE:   m.Generate,
 		},
 	)
 }
 
-func (m *Migrator) Migrate(_ *cobra.Command, args []string) {
+func (m *Migrator) Migrate(_ *cobra.Command, args []string) error {
 	tenant := ""
 	if len(args) > 0 {
 		tenant = args[0]
 	}
-	migratorInstance := migrator.NewMigrator(m.dsn, m.dsnTest, m.database)
-	migratorInstance.MigrateAllDomains(tenant)
+	return migrator.NewMigrator(m.dsn, m.dsnTest, m.database).MigrateAllDomains(tenant)
 }
 
-func (m *Migrator) Inspect(_ *cobra.Command, _ []string) {
-	migratorInstance := migrator.NewMigrator(m.dsn, m.dsnTest, m.database)
-	migratorInstance.Inspect()
+func (m *Migrator) Inspect(_ *cobra.Command, _ []string) error {
+	return migrator.NewMigrator(m.dsn, m.dsnTest, m.database).Inspect()
 }
 
-func (m *Migrator) Generate(_ *cobra.Command, args []string) {
+func (m *Migrator) Generate(_ *cobra.Command, args []string) error {
 	schema := ""
 	if len(args) > 0 {
 		schema = args[0]
@@ -67,8 +65,7 @@ func (m *Migrator) Generate(_ *cobra.Command, args []string) {
 	if len(args) > 1 {
 		databaseName = args[1]
 	}
-	migratorInstance := migrator.NewMigrator(m.dsn, m.dsnTest, m.database)
-	migratorInstance.Generate(schema, databaseName)
+	return migrator.NewMigrator(m.dsn, m.dsnTest, m.database).Generate(schema, databaseName)
 }
 
 func (m *Migrator) BootMigrator(_ *cobra.Command, _ []string) {
