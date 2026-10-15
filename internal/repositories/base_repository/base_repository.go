@@ -187,8 +187,7 @@ func (repo *BaseRepo[Domain]) Edit(Data Domain, field string, value string) (int
 	}
 
 	if affected < 1 {
-		repo.Rollback(tx, nil)
-		return int(affected), nil
+		return int(affected), repo.Rollback(tx, nil)
 	}
 
 	commitErr := repo.Commit(tx)
