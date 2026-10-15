@@ -10,16 +10,14 @@ type Validator struct {
 }
 
 // ValidateStruct provides a mock function with given fields: modelData
-func (_m *Validator) ValidateStruct(modelData interface{}) []error {
+func (_m *Validator) ValidateStruct(modelData interface{}) error {
 	ret := _m.Called(modelData)
 
-	var r0 []error
-	if rf, ok := ret.Get(0).(func(interface{}) []error); ok {
+	var r0 error
+	if rf, ok := ret.Get(0).(func(interface{}) error); ok {
 		r0 = rf(modelData)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]error)
-		}
+		r0 = ret.Error(0)
 	}
 
 	return r0

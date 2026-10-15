@@ -101,7 +101,7 @@ func newRequestValidatorSetCmd() *cobra.Command {
 preservando os campos de Data e adicionando:
   - campo validator services.Validator na struct Request
   - parâmetro validator em NewRequest e entrada no return literal
-  - body de Validate que itera sobre r.validator.ValidateStruct(r.Data)
+  - body de Validate que retorna r.validator.ValidateStruct(r.Data)
   - import de <module>/internal/application/services
 
 Falha se o validator já estiver configurado.`,

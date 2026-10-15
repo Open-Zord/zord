@@ -19,7 +19,7 @@ type IdCreator interface {
 }
 
 type Validator interface {
-	ValidateStruct(modelData any) []error
+	ValidateStruct(modelData any) error
 }
 
 type BaseService struct {
