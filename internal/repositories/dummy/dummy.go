@@ -1,4 +1,4 @@
-package dummy_repository
+package dummyrepo
 
 import (
 	"github.com/jmoiron/sqlx"

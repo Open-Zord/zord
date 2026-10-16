@@ -20,7 +20,7 @@ func TestRepositoryCreate_HappyPath(t *testing.T) {
 	}
 	got := readFile(t, filepath.Join(root, rel))
 	mustContain(t, got,
-		"package foo_repository",
+		"package foorepo",
 		`"github.com/jmoiron/sqlx"`,
 		`"zord/internal/application/domain/foo"`,
 		`"zord/internal/repositories/baserepository"`,
@@ -45,7 +45,7 @@ func TestRepositoryCreate_SnakeCaseDomain(t *testing.T) {
 	}
 	got := readFile(t, filepath.Join(root, rel))
 	mustContain(t, got,
-		"package org_membership_repository",
+		"package orgmembershiprepo",
 		`"zord/internal/application/domain/org_membership"`,
 		`const RegistryKey = "orgMembershipRepository"`,
 		"*baserepository.BaseRepo[org_membership.OrgMembership]",

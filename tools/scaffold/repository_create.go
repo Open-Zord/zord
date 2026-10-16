@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const sqlxImportPath = "github.com/jmoiron/sqlx"
@@ -21,7 +22,7 @@ type RepositoryCreateOptions struct {
 }
 
 // RepositoryCreate gera internal/repositories/<snake>/<snake>.go com o pacote
-// `<snake>_repository`, uma struct concreta embedando
+// `<snake sem underscores>repo`, uma struct concreta embedando
 // *baserepository.BaseRepo[<snake>.<Domain>] e o constructor
 // New<Domain>Repository(mysql *sqlx.DB). Retorna o caminho relativo à raiz.
 //
@@ -72,7 +73,7 @@ func RepositoryCreate(opts RepositoryCreateOptions) (string, error) {
 
 // buildConcreteFile monta, via AST puro, o arquivo Go do repository concreto:
 //
-//	package <snake>_repository
+//	package <snakesemunderscores>repo
 //
 //	import (
 //	    "github.com/jmoiron/sqlx"
@@ -99,7 +100,9 @@ func RepositoryCreate(opts RepositoryCreateOptions) (string, error) {
 // `bootstrap/http/repositories.go` (NAVE-106).
 func buildConcreteFile(domain string, imp importPaths) ([]byte, error) {
 	snake := ToSnake(domain)
-	pkg := snake + "_repository"
+	// Pacote sem underscore (idiomático), no mesmo padrão do alias usado pelo
+	// register: <snake sem underscores> + "repo" (ex.: org_membership -> orgmembershiprepo).
+	pkg := strings.ReplaceAll(snake, "_", "") + "repo"
 	repoType := domain + "Repository"
 
 	// Declaração do const RegistryKey com valor `<lowerCamel>Repository`.
