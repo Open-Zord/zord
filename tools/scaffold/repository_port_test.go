@@ -39,7 +39,7 @@ func TestRepositoryPort_HappyPath(t *testing.T) {
 		"filters",
 		"GetFilters",
 		"SetFilters",
-		"base_repository",
+		"baserepository",
 	)
 }
 

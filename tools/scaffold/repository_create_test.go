@@ -23,12 +23,12 @@ func TestRepositoryCreate_HappyPath(t *testing.T) {
 		"package foo_repository",
 		`"github.com/jmoiron/sqlx"`,
 		`"zord/internal/application/domain/foo"`,
-		`"zord/internal/repositories/base_repository"`,
+		`"zord/internal/repositories/baserepository"`,
 		`const RegistryKey = "fooRepository"`,
 		"type FooRepository struct {",
-		"*base_repository.BaseRepo[foo.Foo]",
+		"*baserepository.BaseRepo[foo.Foo]",
 		"func NewFooRepository(mysql *sqlx.DB) *FooRepository",
-		"BaseRepo: base_repository.NewBaseRepository[foo.Foo](mysql),",
+		"BaseRepo: baserepository.NewBaseRepository[foo.Foo](mysql),",
 	)
 }
 
@@ -48,7 +48,7 @@ func TestRepositoryCreate_SnakeCaseDomain(t *testing.T) {
 		"package org_membership_repository",
 		`"zord/internal/application/domain/org_membership"`,
 		`const RegistryKey = "orgMembershipRepository"`,
-		"*base_repository.BaseRepo[org_membership.OrgMembership]",
+		"*baserepository.BaseRepo[org_membership.OrgMembership]",
 		"func NewOrgMembershipRepository(mysql *sqlx.DB) *OrgMembershipRepository",
 	)
 }
@@ -109,7 +109,7 @@ func TestRepositoryCreate_AfterPortStillWorks(t *testing.T) {
 		t.Fatalf("RepositoryCreate após RepositoryPort: %v", err)
 	}
 	got := readFile(t, filepath.Join(root, rel))
-	mustContain(t, got, "*base_repository.BaseRepo[foo.Foo]")
+	mustContain(t, got, "*baserepository.BaseRepo[foo.Foo]")
 }
 
 func TestRepositoryCreate_EmitsRegistryKeyConst(t *testing.T) {

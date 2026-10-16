@@ -22,7 +22,7 @@ type RepositoryCreateOptions struct {
 
 // RepositoryCreate gera internal/repositories/<snake>/<snake>.go com o pacote
 // `<snake>_repository`, uma struct concreta embedando
-// *base_repository.BaseRepo[<snake>.<Domain>] e o constructor
+// *baserepository.BaseRepo[<snake>.<Domain>] e o constructor
 // New<Domain>Repository(mysql *sqlx.DB). Retorna o caminho relativo à raiz.
 //
 // Falha se o arquivo já existe, se o arquivo do domínio não existe ou se a
@@ -78,19 +78,19 @@ func RepositoryCreate(opts RepositoryCreateOptions) (string, error) {
 //	    "github.com/jmoiron/sqlx"
 //
 //	    "<module>/internal/application/domain/<snake>"
-//	    "<module>/internal/repositories/base_repository"
+//	    "<module>/internal/repositories/baserepository"
 //	)
 //
 //	// RegistryKey identifica o *<Domain>Repository no pkg/registry.
 //	const RegistryKey = "<lowerCamel>Repository"
 //
 //	type <Domain>Repository struct {
-//	    *base_repository.BaseRepo[<snake>.<Domain>]
+//	    *baserepository.BaseRepo[<snake>.<Domain>]
 //	}
 //
 //	func New<Domain>Repository(mysql *sqlx.DB) *<Domain>Repository {
 //	    return &<Domain>Repository{
-//	        BaseRepo: base_repository.NewBaseRepository[<snake>.<Domain>](mysql),
+//	        BaseRepo: baserepository.NewBaseRepository[<snake>.<Domain>](mysql),
 //	    }
 //	}
 //
@@ -115,17 +115,17 @@ func buildConcreteFile(domain string, imp importPaths) ([]byte, error) {
 	}
 	constDecl.Doc = singleComment(fmt.Sprintf("// RegistryKey identifica o *%s no pkg/registry.", repoType))
 
-	// *base_repository.BaseRepo[<snake>.<Domain>]
-	baseRepoIndexed := IndexExpr(Sel("base_repository", "BaseRepo"), Sel(snake, domain))
+	// *baserepository.BaseRepo[<snake>.<Domain>]
+	baseRepoIndexed := IndexExpr(Sel("baserepository", "BaseRepo"), Sel(snake, domain))
 	baseRepoPointer := StarOf(baseRepoIndexed)
 
 	structDecl := TypeDecl(repoType, &ast.StructType{
 		Fields: FieldList(AnonField(baseRepoPointer)),
 	})
 
-	// base_repository.NewBaseRepository[<snake>.<Domain>](mysql)
+	// baserepository.NewBaseRepository[<snake>.<Domain>](mysql)
 	newBaseCall := &ast.CallExpr{
-		Fun:  IndexExpr(Sel("base_repository", "NewBaseRepository"), Sel(snake, domain)),
+		Fun:  IndexExpr(Sel("baserepository", "NewBaseRepository"), Sel(snake, domain)),
 		Args: []ast.Expr{Ident("mysql")},
 	}
 

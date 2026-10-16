@@ -1,7 +1,7 @@
 package http
 
 import (
-	"github.com/Open-Zord/zord/internal/repositories/base_repository"
+	"github.com/Open-Zord/zord/internal/repositories/baserepository"
 	dummyrepo "github.com/Open-Zord/zord/internal/repositories/dummy"
 	"github.com/Open-Zord/zord/pkg/database"
 	"github.com/Open-Zord/zord/pkg/registry"
@@ -15,6 +15,6 @@ import (
 func registerRepositories(reg *registry.Registry) {
 	db := registry.Resolve[*sqlx.DB](reg, database.RegistryKey)
 
-	reg.Provide(base_repository.UoWRegistryKey, base_repository.NewUoW(db))
+	reg.Provide(baserepository.UoWRegistryKey, baserepository.NewUoW(db))
 	reg.Provide(dummyrepo.RegistryKey, dummyrepo.NewDummyRepository(db))
 }

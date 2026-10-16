@@ -1,4 +1,4 @@
-package base_repository
+package baserepository
 
 import (
 	"context"
@@ -20,7 +20,7 @@ type BaseRepo[dom baserepo.Domain] struct {
 func NewBaseRepository[dom baserepo.Domain](mysql *sqlx.DB) *BaseRepo[dom] {
 	do := new(dom) // *dom: ponteiro-para-struct é a forma esperada por structs.
 	if !structs.IsStruct(do) {
-		panic(fmt.Sprintf("base_repository: domínio %T não é struct", *do))
+		panic(fmt.Sprintf("baserepository: domínio %T não é struct", *do))
 	}
 	listFields := make([]string, 0)
 	for _, field := range structs.Fields(do) {
@@ -73,7 +73,7 @@ func (u *UoW) Begin(ctx context.Context) (baserepo.Tx, error) {
 func sqlxTxFrom(tx baserepo.Tx) (*sqlx.Tx, error) {
 	w, ok := tx.(txWrapper)
 	if !ok {
-		return nil, fmt.Errorf("base_repository: tx incompatível (%T)", tx)
+		return nil, fmt.Errorf("baserepository: tx incompatível (%T)", tx)
 	}
 	return w.tx, nil
 }

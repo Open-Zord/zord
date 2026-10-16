@@ -47,7 +47,7 @@ const conventionsText = `# Convenções do scaffold
 - cmd/http: handlers + routes (não importa internal/repositories direto).
 - internal/application/services: usecase-per-folder; orquestra repositórios.
 - internal/application/domain: structs + ports (interfaces).
-- internal/repositories: implementação sqlx; embeda *base_repository.BaseRepo[T].
+- internal/repositories: implementação sqlx; embeda *baserepository.BaseRepo[T].
 - pkg/: utilitários genéricos sem dependência de internal/.
 
 ## Rotas

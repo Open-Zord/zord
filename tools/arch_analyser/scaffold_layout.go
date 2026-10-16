@@ -495,13 +495,13 @@ func (c *layoutChecker) checkDomain() {
 // repoBaseDirs são os subdiretórios de internal/repositories/ que não seguem o
 // shape <domain>/<domain>.go (base compartilhada gerada pelo template).
 var repoBaseDirs = map[string]struct{}{
-	"base_repository": {},
+	"baserepository": {},
 }
 
 // checkRepositories valida internal/repositories/: cada pasta de domínio só
 // pode ter <domain>.go, e o domínio precisa existir em domain/ (repo sem
 // domain correspondente é violação — decisão 3). repository.go é violação
-// (decisão 1). base_repository/ é permitido.
+// (decisão 1). baserepository/ é permitido.
 func (c *layoutChecker) checkRepositories() {
 	root := filepath.Join(c.root, "internal", "repositories")
 	if _, err := os.Stat(root); err != nil {

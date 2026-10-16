@@ -9,7 +9,7 @@ import (
 	"github.com/Open-Zord/zord/internal/application/services/dummy/edit"
 	"github.com/Open-Zord/zord/internal/application/services/dummy/get"
 	"github.com/Open-Zord/zord/internal/application/services/dummy/list"
-	"github.com/Open-Zord/zord/internal/repositories/base_repository"
+	"github.com/Open-Zord/zord/internal/repositories/baserepository"
 	dummyrepo "github.com/Open-Zord/zord/internal/repositories/dummy"
 	"github.com/Open-Zord/zord/pkg/idcreator"
 	"github.com/Open-Zord/zord/pkg/logger"
@@ -24,7 +24,7 @@ func registerServices(reg *registry.Registry) {
 	log := registry.Resolve[baseservice.Logger](reg, logger.RegistryKey)
 	idC := registry.Resolve[baseservice.IDCreator](reg, idcreator.RegistryKey)
 	dummyRepo := registry.Resolve[dummy.Repository](reg, dummyrepo.RegistryKey)
-	uow := registry.Resolve[baserepo.UnitOfWork](reg, base_repository.UoWRegistryKey)
+	uow := registry.Resolve[baserepo.UnitOfWork](reg, baserepository.UoWRegistryKey)
 	reg.Provide(create.RegistryKey, create.NewService(log, idC, dummyRepo, uow))
 	reg.Provide(get.RegistryKey, get.NewService(log, idC))
 	reg.Provide(list.RegistryKey, list.NewService(log, idC))

@@ -1,7 +1,7 @@
 // Package baserepo expõe o contrato genérico de repositório de domínio.
 // A interface Repository[T] é o conjunto canônico de operações que qualquer
 // adapter de persistência precisa oferecer; o struct concreto BaseRepo[T]
-// que a satisfaz vive em internal/repositories/base_repository. Convive em
+// que a satisfaz vive em internal/repositories/baserepository. Convive em
 // providers/ com baseservice (BaseService + ports Logger/IDCreator/Validator)
 // como primitivo cross-cutting de aplicação.
 package baserepo
@@ -24,7 +24,7 @@ type UnitOfWork interface {
 }
 
 // Repository é o contrato genérico de persistência por domínio. Adapters
-// concretos (ex.: BaseRepo em internal/repositories/base_repository) o
+// concretos (ex.: BaseRepo em internal/repositories/baserepository) o
 // implementam estruturalmente. Operações de leitura usam o pool; as mutadoras
 // (Create/Edit/Delete) recebem uma Tx aberta pela UnitOfWork. Toda operação
 // recebe context.Context para propagar cancelamento/deadline/tracing.

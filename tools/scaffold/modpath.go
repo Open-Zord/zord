@@ -84,5 +84,5 @@ const (
 	registryImportSubpath       = "pkg/registry"
 	validatorImportSubpath      = "pkg/validator"
 	baserepoImportSubpath       = "internal/application/providers/baserepo"
-	baseRepositoryImportSubpath = "internal/repositories/base_repository"
+	baseRepositoryImportSubpath = "internal/repositories/baserepository"
 )

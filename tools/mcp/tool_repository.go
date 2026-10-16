@@ -44,7 +44,7 @@ type repositoryUnportInput struct {
 func registerRepository(s *mcpsdk.Server, repo string) {
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "scaffold_repository_create",
-		Description: "Gera internal/repositories/<snake>/repository.go com o adapter sqlx que embeda *base_repository.BaseRepo[T].",
+		Description: "Gera internal/repositories/<snake>/repository.go com o adapter sqlx que embeda *baserepository.BaseRepo[T].",
 		Annotations: writingAnnotations("Scaffold: criar repository"),
 	}, func(_ context.Context, _ *mcpsdk.CallToolRequest, in repositoryCreateInput) (*mcpsdk.CallToolResult, CommonOutput, error) {
 		target, err := effectiveRepo(in.Repo, repo)

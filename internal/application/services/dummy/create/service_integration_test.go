@@ -15,7 +15,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 
-	"github.com/Open-Zord/zord/internal/repositories/base_repository"
+	"github.com/Open-Zord/zord/internal/repositories/baserepository"
 	dummyrepo "github.com/Open-Zord/zord/internal/repositories/dummy"
 )
 
@@ -54,7 +54,7 @@ func TestIntegration_CreatePersists(t *testing.T) {
 	}
 
 	repo := dummyrepo.NewDummyRepository(db)
-	uow := base_repository.NewUoW(db)
+	uow := baserepository.NewUoW(db)
 	svc := NewService(nopLogger{}, fixedID{}, repo, uow)
 
 	resp, err := svc.Execute(context.Background(), NewRequest(&Data{Name: "Ada", Email: "ada@example.com"}))

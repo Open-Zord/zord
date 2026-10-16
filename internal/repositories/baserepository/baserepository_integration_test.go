@@ -4,8 +4,8 @@
 // normal — exigem a tag `integration` e um DSN em ZORD_IT_DSN, ex.:
 //
 //	ZORD_IT_DSN='root:root@tcp(127.0.0.1:3307)/test?parseTime=true' \
-//	  go test -tags integration ./internal/repositories/base_repository/ -v
-package base_repository
+//	  go test -tags integration ./internal/repositories/baserepository/ -v
+package baserepository
 
 import (
 	"context"

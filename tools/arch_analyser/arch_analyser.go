@@ -734,12 +734,12 @@ func ValidateOrchestrationOnlyInServices(root string) error {
 				repoImports = append(repoImports, importPath)
 			}
 		}
-		// Permitir explicitamente domínio + base_repository
-		if len(domainImports) == 1 && len(repoImports) == 1 && strings.Contains(repoImports[0], "base_repository") {
+		// Permitir explicitamente domínio + baserepository
+		if len(domainImports) == 1 && len(repoImports) == 1 && strings.Contains(repoImports[0], "baserepository") {
 			return nil
 		}
 		if len(domainImports)+len(repoImports) > 1 {
-			errors = append(errors, errorWithPos(fset, f.Imports[0], path, "orquestração de múltiplos domínios/repositórios fora de services (exceto domínio + base_repository)"))
+			errors = append(errors, errorWithPos(fset, f.Imports[0], path, "orquestração de múltiplos domínios/repositórios fora de services (exceto domínio + baserepository)"))
 		}
 		return nil
 	})
@@ -894,14 +894,14 @@ func ValidateExternalPackagesUsage(root string) error {
 // ValidateReflectionUsage garante que o uso de reflect seja restrito a camadas utilitárias ou explicitamente permitidas
 func ValidateReflectionUsage(root string) error {
 	providersPath := filepath.Join(root, "internal/application/providers")
-	repoBasePath := filepath.Join(root, "internal/repositories/base_repository")
+	repoBasePath := filepath.Join(root, "internal/repositories/baserepository")
 	internalPath := filepath.Join(root, "internal")
 	var errors []string
 	_ = filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
 			return nil
 		}
-		// Permitir apenas em providers e base_repository
+		// Permitir apenas em providers e baserepository
 		if strings.HasPrefix(path, providersPath) || strings.HasPrefix(path, repoBasePath) {
 			return nil
 		}
@@ -978,7 +978,7 @@ func ValidateDomainNaming(root string) error {
 				continue
 			}
 			name := entry.Name()
-			if name == "base_repository" || name == "base_service" || name == "providers" || name == "context" {
+			if name == "baserepository" || name == "base_service" || name == "providers" || name == "context" {
 				continue
 			}
 			if !validName.MatchString(name) {
