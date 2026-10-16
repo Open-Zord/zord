@@ -274,7 +274,7 @@ import (
 
 func registerServices(reg *registry.Registry) {
 	log := registry.Resolve[baseservice.Logger](reg, logger.RegistryKey)
-	idC := registry.Resolve[baseservice.IdCreator](reg, idCreator.RegistryKey)
+	idC := registry.Resolve[baseservice.IDCreator](reg, idCreator.RegistryKey)
 	reg.Provide(logout.RegistryKey, logout.NewService(log, idC))
 }
 `

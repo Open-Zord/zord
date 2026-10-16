@@ -1,8 +1,9 @@
 package database
 
 import (
-	"github.com/Open-Zord/zord/pkg/logger"
 	"log"
+
+	"github.com/Open-Zord/zord/pkg/logger"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -11,42 +12,42 @@ import (
 // RegistryKey is the key under which the *sqlx.DB is registered in the registry.
 const RegistryKey = "db"
 
-type MySql struct {
+type MySQL struct {
 	logger   *logger.Logger
-	Db       *sqlx.DB
-	DbUser   string
-	DbPass   string
-	DbUrl    string
-	DbPort   string
-	Database string
+	DB       *sqlx.DB
+	dbUser   string
+	dbPass   string
+	dbURL    string
+	dbPort   string
+	database string
 }
 
-func NewMysql(
+func NewMySQL(
 	l *logger.Logger,
-	DbUser string,
-	DbPass string,
-	DbUrl string,
-	DbPort string,
-	Database string,
-) *MySql {
-	return &MySql{
+	dbUser string,
+	dbPass string,
+	dbURL string,
+	dbPort string,
+	database string,
+) *MySQL {
+	return &MySQL{
 		logger:   l,
-		DbUser:   DbUser,
-		DbPass:   DbPass,
-		DbUrl:    DbUrl,
-		DbPort:   DbPort,
-		Database: Database,
+		dbUser:   dbUser,
+		dbPass:   dbPass,
+		dbURL:    dbURL,
+		dbPort:   dbPort,
+		database: database,
 	}
 }
 
-func (m *MySql) Connect() {
+func (m *MySQL) Connect() {
 	config := mysql.Config{
-		User:      m.DbUser,
-		Passwd:    m.DbPass,
-		Addr:      m.DbUrl + ":" + m.DbPort,
+		User:      m.dbUser,
+		Passwd:    m.dbPass,
+		Addr:      m.dbURL + ":" + m.dbPort,
 		Net:       "tcp",
 		ParseTime: true,
-		DBName:    m.Database,
+		DBName:    m.database,
 	}
 
 	conn, err := sqlx.Open("mysql", config.FormatDSN())
@@ -58,5 +59,5 @@ func (m *MySql) Connect() {
 	if err := conn.Ping(); err != nil {
 		log.Fatalln(err)
 	}
-	m.Db = conn
+	m.DB = conn
 }

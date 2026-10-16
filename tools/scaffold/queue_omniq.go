@@ -313,9 +313,9 @@ func buildOmniqPkgFile(name string, imp importPaths) ([]byte, error) {
 	}
 	lBoot := callStmt2(Sel("l", "Boot"))
 
-	// db := database.NewMysql(...)
+	// db := database.NewMySQL(...)
 	dbCall := &ast.CallExpr{
-		Fun: Sel("database", "NewMysql"),
+		Fun: Sel("database", "NewMySQL"),
 		Args: []ast.Expr{
 			Ident("l"),
 			readConfigCall("DB_USER"),
@@ -342,7 +342,7 @@ func buildOmniqPkgFile(name string, imp importPaths) ([]byte, error) {
 	idcAssign := &ast.AssignStmt{
 		Lhs: []ast.Expr{Ident("idC")},
 		Tok: token.DEFINE,
-		Rhs: []ast.Expr{&ast.CallExpr{Fun: Sel("idCreator", "NewIdCreator")}},
+		Rhs: []ast.Expr{&ast.CallExpr{Fun: Sel("idCreator", "NewIDCreator")}},
 	}
 
 	// client, err := omniq.NewClient(omniq.ClientOpts{Host: ..., Port: ..., DB: ...})

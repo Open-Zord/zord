@@ -19,7 +19,7 @@ func registerPkg(reg *registry.Registry, conf *config.Config) {
 	)
 	l.Boot()
 
-	db := database.NewMysql(
+	db := database.NewMySQL(
 		l,
 		conf.ReadConfig("DB_USER"),
 		conf.ReadConfig("DB_PASS"),
@@ -32,11 +32,11 @@ func registerPkg(reg *registry.Registry, conf *config.Config) {
 	val := validator.NewValidator()
 	val.Boot()
 
-	idC := idCreator.NewIdCreator()
+	idC := idCreator.NewIDCreator()
 
 	reg.Provide(logger.RegistryKey, l)
 	reg.Provide(validator.RegistryKey, val)
 	reg.Provide(config.RegistryKey, conf)
 	reg.Provide(idCreator.RegistryKey, idC)
-	reg.Provide(database.RegistryKey, db.Db)
+	reg.Provide(database.RegistryKey, db.DB)
 }

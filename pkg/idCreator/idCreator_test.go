@@ -7,7 +7,7 @@ import (
 )
 
 func TestCreate(t *testing.T) {
-	idGenerator := NewIdCreator()
+	idGenerator := NewIDCreator()
 	ulidString := idGenerator.Create()
 	assert.NotEmpty(t, ulidString)
 }
@@ -16,7 +16,7 @@ func TestCreateUnique(t *testing.T) {
 	ulidMap := make(map[string]bool)
 
 	for i := 0; i < 1000; i++ {
-		idGenerator := NewIdCreator()
+		idGenerator := NewIDCreator()
 		ulidString := idGenerator.Create()
 
 		_, exists := ulidMap[ulidString]

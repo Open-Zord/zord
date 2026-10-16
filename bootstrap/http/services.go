@@ -22,7 +22,7 @@ import (
 // at boot. The scaffold tool appends new service registrations here.
 func registerServices(reg *registry.Registry) {
 	log := registry.Resolve[baseservice.Logger](reg, logger.RegistryKey)
-	idC := registry.Resolve[baseservice.IdCreator](reg, idCreator.RegistryKey)
+	idC := registry.Resolve[baseservice.IDCreator](reg, idCreator.RegistryKey)
 	dummyRepo := registry.Resolve[dummy.Repository](reg, dummyrepo.RegistryKey)
 	uow := registry.Resolve[baserepo.UnitOfWork](reg, base_repository.UoWRegistryKey)
 	reg.Provide(create.RegistryKey, create.NewService(log, idC, dummyRepo, uow))

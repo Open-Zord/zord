@@ -2,7 +2,7 @@
 // A interface Repository[T] é o conjunto canônico de operações que qualquer
 // adapter de persistência precisa oferecer; o struct concreto BaseRepo[T]
 // que a satisfaz vive em internal/repositories/base_repository. Convive em
-// providers/ com baseservice (BaseService + ports Logger/IdCreator/Validator)
+// providers/ com baseservice (BaseService + ports Logger/IDCreator/Validator)
 // como primitivo cross-cutting de aplicação.
 package baserepo
 

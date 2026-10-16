@@ -23,9 +23,9 @@ type Service struct {
 }
 
 // NewService constrói o Service com suas dependências.
-func NewService(logger baseservice.Logger, idCreator baseservice.IdCreator, repo dummy.Repository, uow baserepo.UnitOfWork) *Service {
+func NewService(logger baseservice.Logger, idCreator baseservice.IDCreator, repo dummy.Repository, uow baserepo.UnitOfWork) *Service {
 	return &Service{
-		BaseService: baseservice.BaseService{Logger: logger, Ulid: idCreator},
+		BaseService: baseservice.BaseService{Logger: logger, ULID: idCreator},
 		repo:        repo,
 		uow:         uow,
 	}
@@ -41,7 +41,7 @@ func (s *Service) Execute(ctx context.Context, request *Request) (*Response, err
 	}
 
 	record := dummy.Dummy{
-		ID:    s.Ulid.Create(),
+		ID:    s.ULID.Create(),
 		Name:  request.Data.Name,
 		Email: request.Data.Email,
 	}
