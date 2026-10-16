@@ -30,8 +30,8 @@ type UnitOfWork interface {
 // recebe context.Context para propagar cancelamento/deadline/tracing.
 type Repository[dom Domain] interface {
 	Get(ctx context.Context, domain dom, field string, value string) (*dom, error)
-	List(ctx context.Context, domain dom, limit int, offset int) (*[]dom, error)
-	Search(ctx context.Context, domain dom, field string, value string) (*[]dom, error)
+	List(ctx context.Context, domain dom, limit int, offset int) ([]dom, error)
+	Search(ctx context.Context, domain dom, field string, value string) ([]dom, error)
 	Count(ctx context.Context, data dom) (int64, error)
 	Create(ctx context.Context, tx Tx, data dom) error
 	Edit(ctx context.Context, tx Tx, data dom, field string, value string) (int, error)

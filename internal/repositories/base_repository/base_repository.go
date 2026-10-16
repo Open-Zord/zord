@@ -145,7 +145,7 @@ func (repo *BaseRepo[Domain]) Get(ctx context.Context, Data Domain, field string
 // List devolve todas as linhas da tabela do Domain dentro do range
 // LIMIT/OFFSET. Sem cláusula WHERE: filtros específicos viram métodos sob
 // medida no repositório do domínio (não há mais filtro dinâmico genérico).
-func (repo *BaseRepo[Domain]) List(ctx context.Context, Data Domain, limit int, offset int) (*[]Domain, error) {
+func (repo *BaseRepo[Domain]) List(ctx context.Context, Data Domain, limit int, offset int) ([]Domain, error) {
 	var results []Domain
 	query := fmt.Sprintf(
 		`SELECT %s FROM %s LIMIT ? OFFSET ?`,
@@ -167,7 +167,7 @@ func (repo *BaseRepo[Domain]) List(ctx context.Context, Data Domain, limit int, 
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return &results, nil
+	return results, nil
 }
 
 // Count devolve a contagem total de linhas da tabela do Domain. Sem WHERE:
@@ -178,7 +178,7 @@ func (repo *BaseRepo[Domain]) Count(ctx context.Context, Data Domain) (int64, er
 	return count, err
 }
 
-func (repo *BaseRepo[Domain]) Search(ctx context.Context, Data Domain, field string, value string) (*[]Domain, error) {
+func (repo *BaseRepo[Domain]) Search(ctx context.Context, Data Domain, field string, value string) ([]Domain, error) {
 	if !repo.columnAllowed(field) {
 		return nil, fmt.Errorf("search: coluna desconhecida %q", field)
 	}
@@ -192,7 +192,7 @@ func (repo *BaseRepo[Domain]) Search(ctx context.Context, Data Domain, field str
 	if err := repo.Mysql.SelectContext(ctx, &data, query, "%"+value+"%"); err != nil {
 		return nil, err
 	}
-	return &data, nil
+	return data, nil
 }
 
 // Create insere Data participando da transação tx. Não commita nem rola: o

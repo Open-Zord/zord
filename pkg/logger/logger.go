@@ -37,30 +37,30 @@ func (l *Logger) Boot() {
 		Logger()
 }
 
-func (l *Logger) Debug(Message string, Context ...string) {
-	l.logger.Debug().Str("service", l.service).Strs("context", Context).Msg(Message)
+func (l *Logger) Debug(message string, fields ...string) {
+	l.logger.Debug().Str("service", l.service).Strs("context", fields).Msg(message)
 }
 
-func (l *Logger) Info(Message string, Context ...string) {
+func (l *Logger) Info(message string, fields ...string) {
 	l.logger.Info().
-		Str("service", l.service).Strs("context", Context).Msg(Message)
+		Str("service", l.service).Strs("context", fields).Msg(message)
 }
 
-func (l *Logger) Warning(Message string, Context ...string) {
+func (l *Logger) Warning(message string, fields ...string) {
 	l.logger.Warn().
-		Str("service", l.service).Strs("context", Context).Msg(Message)
+		Str("service", l.service).Strs("context", fields).Msg(message)
 }
 
-func (l *Logger) Error(Error error, Context ...string) {
+func (l *Logger) Error(err error, fields ...string) {
 	l.logger.Error().Str("service", l.service).Strs(
-		"context", Context).
-		Caller(1).Msg(Error.Error())
+		"context", fields).
+		Caller(1).Msg(err.Error())
 }
 
-func (l *Logger) Critical(Error error, Context ...string) {
+func (l *Logger) Critical(err error, fields ...string) {
 	l.logger.Fatal().Str("service", l.service).Strs(
-		"context", Context).
-		Caller(1).Msg(Error.Error())
+		"context", fields).
+		Caller(1).Msg(err.Error())
 }
 
 func (l *Logger) SetLogService(service string) {
