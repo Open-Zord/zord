@@ -129,8 +129,8 @@ func ensureServiceLocals(fset *token.FileSet, file *ast.File, registerFn *ast.Fu
 	}
 	if !hasLocalAssign(registerFn, "idC") {
 		astutil.AddImport(fset, file, imp.join(servicesImportSubpath))
-		astutil.AddImport(fset, file, imp.join("pkg/idCreator"))
-		prefix = append(prefix, buildResolveAssign("idC", "services", "IDCreator", "idCreator"))
+		astutil.AddImport(fset, file, imp.join("pkg/idcreator"))
+		prefix = append(prefix, buildResolveAssign("idC", "services", "IDCreator", "idcreator"))
 	}
 	if len(prefix) > 0 {
 		registerFn.Body.List = append(prefix, registerFn.Body.List...)

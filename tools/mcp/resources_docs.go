@@ -16,7 +16,7 @@ import (
 const conventionsText = `# Convenções do scaffold
 
 ## Identificadores
-- ULIDs como ID opaco do domínio (pkg/idCreator). Nunca UUID nem autoincrement.
+- ULIDs como ID opaco do domínio (pkg/idcreator). Nunca UUID nem autoincrement.
 - Nomes de domain em PascalCase (ex.: "OrgMembership", "UsageRecord").
 - Nomes de verb de service em PascalCase (ex.: "Login", "SelectOrg").
 - Pacotes em snake_case (ex.: package usage_record).

@@ -289,7 +289,7 @@ func buildOmniqPkgFile(name string, imp importPaths) ([]byte, error) {
 		[]string{
 			imp.join("pkg/config"),
 			imp.join("pkg/database"),
-			imp.join("pkg/idCreator"),
+			imp.join("pkg/idcreator"),
 			imp.join("pkg/logger"),
 			imp.join(registryImportSubpath),
 			imp.join("pkg/validator"),
@@ -342,7 +342,7 @@ func buildOmniqPkgFile(name string, imp importPaths) ([]byte, error) {
 	idcAssign := &ast.AssignStmt{
 		Lhs: []ast.Expr{Ident("idC")},
 		Tok: token.DEFINE,
-		Rhs: []ast.Expr{&ast.CallExpr{Fun: Sel("idCreator", "NewIDCreator")}},
+		Rhs: []ast.Expr{&ast.CallExpr{Fun: Sel("idcreator", "NewIDCreator")}},
 	}
 
 	// client, err := omniq.NewClient(omniq.ClientOpts{Host: ..., Port: ..., DB: ...})
@@ -373,7 +373,7 @@ func buildOmniqPkgFile(name string, imp importPaths) ([]byte, error) {
 	provideLogger := provideStmt(Sel("logger", "RegistryKey"), Ident("l"))
 	provideValidator := provideStmt(Sel("validator", "RegistryKey"), Ident("val"))
 	provideConfig := provideStmt(Sel("config", "RegistryKey"), Ident("conf"))
-	provideIdCreator := provideStmt(Sel("idCreator", "RegistryKey"), Ident("idC"))
+	provideIdCreator := provideStmt(Sel("idcreator", "RegistryKey"), Ident("idC"))
 	provideDb := provideStmt(Sel("database", "RegistryKey"), Sel("db", "Db"))
 	provideOmniq := provideStmt(Ident("omniqClientRegistryKey"), Ident("client"))
 

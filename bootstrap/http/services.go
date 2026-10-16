@@ -11,7 +11,7 @@ import (
 	"github.com/Open-Zord/zord/internal/application/services/dummy/list"
 	"github.com/Open-Zord/zord/internal/repositories/base_repository"
 	dummyrepo "github.com/Open-Zord/zord/internal/repositories/dummy"
-	"github.com/Open-Zord/zord/pkg/idCreator"
+	"github.com/Open-Zord/zord/pkg/idcreator"
 	"github.com/Open-Zord/zord/pkg/logger"
 	"github.com/Open-Zord/zord/pkg/registry"
 )
@@ -22,7 +22,7 @@ import (
 // at boot. The scaffold tool appends new service registrations here.
 func registerServices(reg *registry.Registry) {
 	log := registry.Resolve[baseservice.Logger](reg, logger.RegistryKey)
-	idC := registry.Resolve[baseservice.IDCreator](reg, idCreator.RegistryKey)
+	idC := registry.Resolve[baseservice.IDCreator](reg, idcreator.RegistryKey)
 	dummyRepo := registry.Resolve[dummy.Repository](reg, dummyrepo.RegistryKey)
 	uow := registry.Resolve[baserepo.UnitOfWork](reg, base_repository.UoWRegistryKey)
 	reg.Provide(create.RegistryKey, create.NewService(log, idC, dummyRepo, uow))

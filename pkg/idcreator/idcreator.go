@@ -1,4 +1,4 @@
-package idCreator
+package idcreator
 
 import "github.com/oklog/ulid/v2"
 
