@@ -1,6 +1,7 @@
 package base_repository
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -10,14 +11,14 @@ import (
 )
 
 type BaseRepository[dom Domain] interface {
-	Get(domain dom, field string, value string) (*dom, error)
-	Create(data dom, tx *sqlx.Tx, autoCommit bool) error
-	List(domain dom, limit int, offset int) (*[]dom, error)
-	Search(domain dom, field string, value string) (*[]dom, error)
-	Edit(data dom, field string, value string) (int, error)
-	Delete(domain dom, field string, values string) error
-	Count(Data dom) (int64, error)
-	InitTX() (*sqlx.Tx, error)
+	Get(ctx context.Context, domain dom, field string, value string) (*dom, error)
+	Create(ctx context.Context, data dom, tx *sqlx.Tx, autoCommit bool) error
+	List(ctx context.Context, domain dom, limit int, offset int) (*[]dom, error)
+	Search(ctx context.Context, domain dom, field string, value string) (*[]dom, error)
+	Edit(ctx context.Context, data dom, field string, value string) (int, error)
+	Delete(ctx context.Context, domain dom, field string, values string) error
+	Count(ctx context.Context, Data dom) (int64, error)
+	InitTX(ctx context.Context) (*sqlx.Tx, error)
 	Commit(tx *sqlx.Tx) error
 	Rollback(tx *sqlx.Tx, err error) error
 }
@@ -104,9 +105,8 @@ func (repo *BaseRepo[Domain]) columnValues(data *Domain) map[string]any {
 	return out
 }
 
-func (repo *BaseRepo[Domain]) InitTX() (*sqlx.Tx, error) {
-	tx, err := repo.Mysql.Beginx()
-	return tx, err
+func (repo *BaseRepo[Domain]) InitTX(ctx context.Context) (*sqlx.Tx, error) {
+	return repo.Mysql.BeginTxx(ctx, nil)
 }
 
 func (repo *BaseRepo[Domain]) Commit(tx *sqlx.Tx) error {
@@ -121,7 +121,7 @@ func (repo *BaseRepo[Domain]) Rollback(tx *sqlx.Tx, err error) error {
 	return err
 }
 
-func (repo *BaseRepo[Domain]) Get(Data Domain, field string, value string) (*Domain, error) {
+func (repo *BaseRepo[Domain]) Get(ctx context.Context, Data Domain, field string, value string) (*Domain, error) {
 	if !repo.columnAllowed(field) {
 		return nil, fmt.Errorf("get: coluna desconhecida %q", field)
 	}
@@ -131,19 +131,19 @@ func (repo *BaseRepo[Domain]) Get(Data Domain, field string, value string) (*Dom
 		quoteIdent(Data.Schema()),
 		quoteIdent(field),
 	)
-	row := repo.Mysql.QueryRowx(query, value)
+	row := repo.Mysql.QueryRowxContext(ctx, query, value)
 	if err := row.StructScan(&Data); err != nil {
 		return nil, err
 	}
 	return &Data, nil
 }
 
-func (repo *BaseRepo[Domain]) Create(Data Domain, tx *sqlx.Tx, autoCommit bool) error {
+func (repo *BaseRepo[Domain]) Create(ctx context.Context, Data Domain, tx *sqlx.Tx, autoCommit bool) error {
 	namedValues := make([]string, 0, len(repo.fields))
 	for _, field := range repo.fields {
 		namedValues = append(namedValues, ":"+field)
 	}
-	res, err := tx.NamedExec(
+	res, err := tx.NamedExecContext(ctx,
 		fmt.Sprintf(
 			`INSERT INTO %s (%s) VALUES (%s)`,
 			quoteIdent(Data.Schema()),
@@ -176,14 +176,14 @@ func (repo *BaseRepo[Domain]) Create(Data Domain, tx *sqlx.Tx, autoCommit bool) 
 // List devolve todas as linhas da tabela do Domain dentro do range
 // LIMIT/OFFSET. Sem cláusula WHERE: filtros específicos viram métodos sob
 // medida no repositório do domínio (não há mais filtro dinâmico genérico).
-func (repo *BaseRepo[Domain]) List(Data Domain, limit int, offset int) (*[]Domain, error) {
+func (repo *BaseRepo[Domain]) List(ctx context.Context, Data Domain, limit int, offset int) (*[]Domain, error) {
 	var results []Domain
 	query := fmt.Sprintf(
 		`SELECT %s FROM %s LIMIT ? OFFSET ?`,
 		strings.Join(quoteIdents(repo.fields), ", "),
 		quoteIdent(Data.Schema()),
 	)
-	rows, err := repo.Mysql.Queryx(query, limit, offset)
+	rows, err := repo.Mysql.QueryxContext(ctx, query, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func (repo *BaseRepo[Domain]) List(Data Domain, limit int, offset int) (*[]Domai
 	return &results, nil
 }
 
-func (repo *BaseRepo[Domain]) Edit(Data Domain, field string, value string) (int, error) {
+func (repo *BaseRepo[Domain]) Edit(ctx context.Context, Data Domain, field string, value string) (int, error) {
 	if !repo.columnAllowed(field) {
 		return 0, fmt.Errorf("edit: coluna desconhecida %q", field)
 	}
@@ -223,12 +223,12 @@ func (repo *BaseRepo[Domain]) Edit(Data Domain, field string, value string) (int
 		whereKey,
 	)
 
-	tx, err := repo.Mysql.Beginx()
+	tx, err := repo.Mysql.BeginTxx(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
 
-	res, err := tx.NamedExec(query, args)
+	res, err := tx.NamedExecContext(ctx, query, args)
 	if err != nil {
 		return 0, repo.Rollback(tx, err)
 	}
@@ -247,7 +247,7 @@ func (repo *BaseRepo[Domain]) Edit(Data Domain, field string, value string) (int
 	return int(affected), nil
 }
 
-func (repo *BaseRepo[Domain]) Delete(Data Domain, field string, value string) error {
+func (repo *BaseRepo[Domain]) Delete(ctx context.Context, Data Domain, field string, value string) error {
 	if !repo.columnAllowed(field) {
 		return fmt.Errorf("delete: coluna desconhecida %q", field)
 	}
@@ -260,7 +260,7 @@ func (repo *BaseRepo[Domain]) Delete(Data Domain, field string, value string) er
 			quoteIdent(softDelete),
 			quoteIdent(field),
 		)
-		return repo.execDelete(query, value)
+		return repo.execDelete(ctx, query, value)
 	}
 
 	query := fmt.Sprintf(
@@ -268,13 +268,13 @@ func (repo *BaseRepo[Domain]) Delete(Data Domain, field string, value string) er
 		quoteIdent(Data.Schema()),
 		quoteIdent(field),
 	)
-	return repo.execDelete(query, value)
+	return repo.execDelete(ctx, query, value)
 }
 
 // execDelete roda um DELETE/soft-delete já montado (identificadores citados,
 // valor parametrizado) e trata "nada afetado" como erro.
-func (repo *BaseRepo[Domain]) execDelete(query string, value string) error {
-	res, err := repo.Mysql.Exec(query, value)
+func (repo *BaseRepo[Domain]) execDelete(ctx context.Context, query string, value string) error {
+	res, err := repo.Mysql.ExecContext(ctx, query, value)
 	if err != nil {
 		return err
 	}
@@ -290,13 +290,13 @@ func (repo *BaseRepo[Domain]) execDelete(query string, value string) error {
 
 // Count devolve a contagem total de linhas da tabela do Domain. Sem WHERE:
 // counts filtrados viram métodos sob medida no repositório do domínio.
-func (repo *BaseRepo[Domain]) Count(Data Domain) (int64, error) {
+func (repo *BaseRepo[Domain]) Count(ctx context.Context, Data Domain) (int64, error) {
 	var count int64
-	err := repo.Mysql.Get(&count, "SELECT count(1) FROM "+quoteIdent(Data.Schema()))
+	err := repo.Mysql.GetContext(ctx, &count, "SELECT count(1) FROM "+quoteIdent(Data.Schema()))
 	return count, err
 }
 
-func (repo *BaseRepo[Domain]) Search(Data Domain, field string, value string) (*[]Domain, error) {
+func (repo *BaseRepo[Domain]) Search(ctx context.Context, Data Domain, field string, value string) (*[]Domain, error) {
 	if !repo.columnAllowed(field) {
 		return nil, fmt.Errorf("search: coluna desconhecida %q", field)
 	}
@@ -307,7 +307,7 @@ func (repo *BaseRepo[Domain]) Search(Data Domain, field string, value string) (*
 		quoteIdent(Data.Schema()),
 		quoteIdent(field),
 	)
-	if err := repo.Mysql.Select(&data, query, "%"+value+"%"); err != nil {
+	if err := repo.Mysql.SelectContext(ctx, &data, query, "%"+value+"%"); err != nil {
 		return nil, err
 	}
 	return &data, nil

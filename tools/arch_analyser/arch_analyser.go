@@ -506,6 +506,10 @@ func ValidateContextUsage(root string) error {
 	dirsPermitidos := []string{
 		filepath.Join(root, "internal/application/services"),
 		filepath.Join(root, "internal/repositories"),
+		// O port de persistência vive em providers/baserepo e declara as
+		// operações de I/O do repositório — context pertence a esse contrato,
+		// assim como em repositories/.
+		filepath.Join(root, "internal/application/providers/baserepo"),
 	}
 	internalPath := filepath.Join(root, "internal")
 	var errors []string

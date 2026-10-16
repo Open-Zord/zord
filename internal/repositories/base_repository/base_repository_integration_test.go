@@ -8,6 +8,7 @@
 package base_repository
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -41,18 +42,19 @@ func openIT(t *testing.T) *sqlx.DB {
 // TestIntegration_EditCommits prova que o Edit persiste (executa e commita na
 // própria tx) — o bug antigo executava fora da tx e commitava uma tx vazia.
 func TestIntegration_EditCommits(t *testing.T) {
+	ctx := context.Background()
 	db := openIT(t)
 	repo := NewBaseRepository[fakeDomain](db)
 
-	tx, err := repo.InitTX()
+	tx, err := repo.InitTX(ctx)
 	if err != nil {
 		t.Fatalf("InitTX: %v", err)
 	}
-	if err := repo.Create(fakeDomain{ID: "01HFAKE000000000000000001", Name: "alice"}, tx, true); err != nil {
+	if err := repo.Create(ctx, fakeDomain{ID: "01HFAKE000000000000000001", Name: "alice"}, tx, true); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	affected, err := repo.Edit(fakeDomain{ID: "01HFAKE000000000000000001", Name: "bob"}, "id", "01HFAKE000000000000000001")
+	affected, err := repo.Edit(ctx, fakeDomain{ID: "01HFAKE000000000000000001", Name: "bob"}, "id", "01HFAKE000000000000000001")
 	if err != nil {
 		t.Fatalf("Edit: %v", err)
 	}
@@ -60,7 +62,7 @@ func TestIntegration_EditCommits(t *testing.T) {
 		t.Fatalf("Edit affected = %d; want 1", affected)
 	}
 
-	got, err := repo.Get(fakeDomain{}, "id", "01HFAKE000000000000000001")
+	got, err := repo.Get(ctx, fakeDomain{}, "id", "01HFAKE000000000000000001")
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
@@ -73,21 +75,22 @@ func TestIntegration_EditCommits(t *testing.T) {
 // tratado como literal parametrizado: não casa nenhuma linha e não afeta as
 // outras (sem SQL injection).
 func TestIntegration_ValueIsNotInjectable(t *testing.T) {
+	ctx := context.Background()
 	db := openIT(t)
 	repo := NewBaseRepository[fakeDomain](db)
 
-	tx, err := repo.InitTX()
+	tx, err := repo.InitTX(ctx)
 	if err != nil {
 		t.Fatalf("InitTX: %v", err)
 	}
-	if err := repo.Create(fakeDomain{ID: "keep-1", Name: "keep"}, tx, true); err != nil {
+	if err := repo.Create(ctx, fakeDomain{ID: "keep-1", Name: "keep"}, tx, true); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
 	// Payload clássico: se o valor fosse interpolado, o WHERE viraria sempre
 	// verdadeiro e o UPDATE atingiria todas as linhas.
 	inject := "nope' OR '1'='1"
-	affected, err := repo.Edit(fakeDomain{ID: "x", Name: "hacked"}, "id", inject)
+	affected, err := repo.Edit(ctx, fakeDomain{ID: "x", Name: "hacked"}, "id", inject)
 	if err != nil {
 		t.Fatalf("Edit: %v", err)
 	}
@@ -96,7 +99,7 @@ func TestIntegration_ValueIsNotInjectable(t *testing.T) {
 	}
 
 	// A linha legítima permanece intacta.
-	got, err := repo.Get(fakeDomain{}, "id", "keep-1")
+	got, err := repo.Get(ctx, fakeDomain{}, "id", "keep-1")
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
@@ -108,18 +111,19 @@ func TestIntegration_ValueIsNotInjectable(t *testing.T) {
 // TestIntegration_SoftDelete prova que o soft delete seta deleted_at com o valor
 // parametrizado e reporta a linha afetada.
 func TestIntegration_SoftDelete(t *testing.T) {
+	ctx := context.Background()
 	db := openIT(t)
 	repo := NewBaseRepository[fakeDomain](db)
 
-	tx, err := repo.InitTX()
+	tx, err := repo.InitTX(ctx)
 	if err != nil {
 		t.Fatalf("InitTX: %v", err)
 	}
-	if err := repo.Create(fakeDomain{ID: "del-1", Name: "x"}, tx, true); err != nil {
+	if err := repo.Create(ctx, fakeDomain{ID: "del-1", Name: "x"}, tx, true); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	if err := repo.Delete(fakeDomain{}, "id", "del-1"); err != nil {
+	if err := repo.Delete(ctx, fakeDomain{}, "id", "del-1"); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
 	var deleted int

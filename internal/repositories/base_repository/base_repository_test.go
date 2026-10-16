@@ -1,6 +1,7 @@
 package base_repository
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -71,19 +72,20 @@ func TestColumnAllowed(t *testing.T) {
 // primeiro, haveria panic por nil-deref — então o teste também prova a ordem.
 func TestRejectsUnknownColumn(t *testing.T) {
 	repo := newFakeRepo()
+	ctx := context.Background()
 	d := fakeDomain{ID: "1", Name: "n"}
 	const inject = "id; DROP TABLE fakes --"
 
-	if _, err := repo.Get(d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {
+	if _, err := repo.Get(ctx, d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {
 		t.Errorf("Get: err = %v; want 'coluna desconhecida'", err)
 	}
-	if _, err := repo.Edit(d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {
+	if _, err := repo.Edit(ctx, d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {
 		t.Errorf("Edit: err = %v; want 'coluna desconhecida'", err)
 	}
-	if err := repo.Delete(d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {
+	if err := repo.Delete(ctx, d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {
 		t.Errorf("Delete: err = %v; want 'coluna desconhecida'", err)
 	}
-	if _, err := repo.Search(d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {
+	if _, err := repo.Search(ctx, d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {
 		t.Errorf("Search: err = %v; want 'coluna desconhecida'", err)
 	}
 }
