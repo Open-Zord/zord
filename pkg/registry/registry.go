@@ -17,7 +17,13 @@ func NewRegistry() *Registry {
 	}
 }
 
+// Provide registra dep sob name. Panica se name já estiver registrado:
+// overwrite silencioso era um bug de wiring difícil de rastrear (o último
+// registro vencia sem aviso). Fail-fast no boot.
 func (r *Registry) Provide(name string, dep Dependency) {
+	if _, dup := r.deps[name]; dup {
+		panic(fmt.Sprintf("registry: %q já registrado (overwrite não permitido)", name))
+	}
 	r.deps[name] = dep
 }
 
@@ -49,4 +55,17 @@ func Resolve[T any](r *Registry, name string) T {
 		))
 	}
 	return t
+}
+
+// Validate confere invariantes do grafo montado, como gate de boot: hoje, que
+// nenhuma dependência foi registrada como nil. A completude do grafo (todas as
+// deps necessárias presentes) já é garantida pela construção eager no Setup, que
+// resolve tudo e panica se faltar — Validate cobre o complemento.
+func (r *Registry) Validate() error {
+	for name, dep := range r.deps {
+		if dep == nil {
+			return fmt.Errorf("registry: %q registrado como nil", name)
+		}
+	}
+	return nil
 }
