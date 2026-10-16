@@ -839,12 +839,8 @@ func ValidateExternalPackagesUsage(root string) error {
 	apperrorPkg := mod + "/pkg/apperror"
 	allowed := map[string][]string{
 		"repositories": {"github.com/jmoiron/sqlx", "github.com/fatih/structs", "github.com/go-sql-driver/mysql"},
-		// TODO: remover sqlx de services quando a refatoração do UnitOfWork
-		// abstrair *sqlx.Tx das interfaces de repositório.
-		"services": {"github.com/rs/zerolog", "github.com/jmoiron/sqlx", apperrorPkg},
-		// providers/baserepo expõe *sqlx.Tx no contrato.
-		// TODO: remover quando o UnitOfWork abstrair Tx.
-		"providers": {"github.com/jmoiron/sqlx"},
+		"services":     {"github.com/rs/zerolog", apperrorPkg},
+		"providers":    {},
 	}
 	layerPaths := map[string]string{
 		"repositories": filepath.Join(root, "internal/repositories"),

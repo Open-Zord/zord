@@ -79,10 +79,11 @@ func TestRejectsUnknownColumn(t *testing.T) {
 	if _, err := repo.Get(ctx, d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {
 		t.Errorf("Get: err = %v; want 'coluna desconhecida'", err)
 	}
-	if _, err := repo.Edit(ctx, d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {
+	// tx nil: a rejeição por coluna desconhecida acontece antes de tocar a tx.
+	if _, err := repo.Edit(ctx, nil, d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {
 		t.Errorf("Edit: err = %v; want 'coluna desconhecida'", err)
 	}
-	if err := repo.Delete(ctx, d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {
+	if err := repo.Delete(ctx, nil, d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {
 		t.Errorf("Delete: err = %v; want 'coluna desconhecida'", err)
 	}
 	if _, err := repo.Search(ctx, d, inject, "x"); err == nil || !strings.Contains(err.Error(), "coluna desconhecida") {

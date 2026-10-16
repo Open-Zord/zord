@@ -39,24 +39,44 @@ func openIT(t *testing.T) *sqlx.DB {
 	return db
 }
 
-// TestIntegration_EditCommits prova que o Edit persiste (executa e commita na
-// própria tx) — o bug antigo executava fora da tx e commitava uma tx vazia.
+// seedCreate insere uma linha numa tx própria (begin → create → commit),
+// exercitando a UnitOfWork.
+func seedCreate(t *testing.T, ctx context.Context, uow *UoW, repo *BaseRepo[fakeDomain], d fakeDomain) {
+	t.Helper()
+	tx, err := uow.Begin(ctx)
+	if err != nil {
+		t.Fatalf("Begin: %v", err)
+	}
+	if err := repo.Create(ctx, tx, d); err != nil {
+		_ = tx.Rollback()
+		t.Fatalf("Create: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+}
+
+// TestIntegration_EditCommits prova que o Edit persiste quando o orquestrador
+// commita a tx da UnitOfWork.
 func TestIntegration_EditCommits(t *testing.T) {
 	ctx := context.Background()
 	db := openIT(t)
 	repo := NewBaseRepository[fakeDomain](db)
+	uow := NewUoW(db)
 
-	tx, err := repo.InitTX(ctx)
-	if err != nil {
-		t.Fatalf("InitTX: %v", err)
-	}
-	if err := repo.Create(ctx, fakeDomain{ID: "01HFAKE000000000000000001", Name: "alice"}, tx, true); err != nil {
-		t.Fatalf("Create: %v", err)
-	}
+	seedCreate(t, ctx, uow, repo, fakeDomain{ID: "01HFAKE000000000000000001", Name: "alice"})
 
-	affected, err := repo.Edit(ctx, fakeDomain{ID: "01HFAKE000000000000000001", Name: "bob"}, "id", "01HFAKE000000000000000001")
+	tx, err := uow.Begin(ctx)
 	if err != nil {
+		t.Fatalf("Begin: %v", err)
+	}
+	affected, err := repo.Edit(ctx, tx, fakeDomain{ID: "01HFAKE000000000000000001", Name: "bob"}, "id", "01HFAKE000000000000000001")
+	if err != nil {
+		_ = tx.Rollback()
 		t.Fatalf("Edit: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("Commit: %v", err)
 	}
 	if affected != 1 {
 		t.Fatalf("Edit affected = %d; want 1", affected)
@@ -71,6 +91,36 @@ func TestIntegration_EditCommits(t *testing.T) {
 	}
 }
 
+// TestIntegration_RollbackDiscards prova que, sem commit, o Rollback descarta a
+// escrita — o orquestrador controla o desfecho da tx.
+func TestIntegration_RollbackDiscards(t *testing.T) {
+	ctx := context.Background()
+	db := openIT(t)
+	repo := NewBaseRepository[fakeDomain](db)
+	uow := NewUoW(db)
+
+	seedCreate(t, ctx, uow, repo, fakeDomain{ID: "roll-1", Name: "orig"})
+
+	tx, err := uow.Begin(ctx)
+	if err != nil {
+		t.Fatalf("Begin: %v", err)
+	}
+	if _, err := repo.Edit(ctx, tx, fakeDomain{ID: "roll-1", Name: "mudado"}, "id", "roll-1"); err != nil {
+		t.Fatalf("Edit: %v", err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+
+	got, err := repo.Get(ctx, fakeDomain{}, "id", "roll-1")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.Name != "orig" {
+		t.Errorf("name após Rollback = %q; want orig (edit não devia persistir)", got.Name)
+	}
+}
+
 // TestIntegration_ValueIsNotInjectable prova que um valor malicioso no WHERE é
 // tratado como literal parametrizado: não casa nenhuma linha e não afeta as
 // outras (sem SQL injection).
@@ -78,21 +128,24 @@ func TestIntegration_ValueIsNotInjectable(t *testing.T) {
 	ctx := context.Background()
 	db := openIT(t)
 	repo := NewBaseRepository[fakeDomain](db)
+	uow := NewUoW(db)
 
-	tx, err := repo.InitTX(ctx)
-	if err != nil {
-		t.Fatalf("InitTX: %v", err)
-	}
-	if err := repo.Create(ctx, fakeDomain{ID: "keep-1", Name: "keep"}, tx, true); err != nil {
-		t.Fatalf("Create: %v", err)
-	}
+	seedCreate(t, ctx, uow, repo, fakeDomain{ID: "keep-1", Name: "keep"})
 
 	// Payload clássico: se o valor fosse interpolado, o WHERE viraria sempre
 	// verdadeiro e o UPDATE atingiria todas as linhas.
 	inject := "nope' OR '1'='1"
-	affected, err := repo.Edit(ctx, fakeDomain{ID: "x", Name: "hacked"}, "id", inject)
+	tx, err := uow.Begin(ctx)
 	if err != nil {
+		t.Fatalf("Begin: %v", err)
+	}
+	affected, err := repo.Edit(ctx, tx, fakeDomain{ID: "x", Name: "hacked"}, "id", inject)
+	if err != nil {
+		_ = tx.Rollback()
 		t.Fatalf("Edit: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("Commit: %v", err)
 	}
 	if affected != 0 {
 		t.Fatalf("Edit com payload afetou %d linhas; want 0 (valor deve ser literal)", affected)
@@ -114,18 +167,22 @@ func TestIntegration_SoftDelete(t *testing.T) {
 	ctx := context.Background()
 	db := openIT(t)
 	repo := NewBaseRepository[fakeDomain](db)
+	uow := NewUoW(db)
 
-	tx, err := repo.InitTX(ctx)
+	seedCreate(t, ctx, uow, repo, fakeDomain{ID: "del-1", Name: "x"})
+
+	tx, err := uow.Begin(ctx)
 	if err != nil {
-		t.Fatalf("InitTX: %v", err)
+		t.Fatalf("Begin: %v", err)
 	}
-	if err := repo.Create(ctx, fakeDomain{ID: "del-1", Name: "x"}, tx, true); err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-
-	if err := repo.Delete(ctx, fakeDomain{}, "id", "del-1"); err != nil {
+	if err := repo.Delete(ctx, tx, fakeDomain{}, "id", "del-1"); err != nil {
+		_ = tx.Rollback()
 		t.Fatalf("Delete: %v", err)
 	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+
 	var deleted int
 	if err := db.Get(&deleted, "SELECT COUNT(1) FROM fakes WHERE id = ? AND deleted_at IS NOT NULL", "del-1"); err != nil {
 		t.Fatalf("check: %v", err)

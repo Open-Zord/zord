@@ -6,27 +6,36 @@
 // como primitivo cross-cutting de aplicação.
 package baserepo
 
-import (
-	"context"
+import "context"
 
-	"github.com/jmoiron/sqlx"
-)
+// Tx é o handle de transação abstrato devolvido pela UnitOfWork. Esconde o
+// driver concreto (sqlx) do contrato de aplicação: o service orquestra
+// Begin/Commit/Rollback sem conhecer o driver.
+type Tx interface {
+	Commit() error
+	Rollback() error
+}
+
+// UnitOfWork abre transações. Um service chama Begin para obter uma Tx, passa
+// essa Tx às operações mutadoras do Repository e commita/rola ao final — o
+// controle transacional fica no orquestrador, não no repositório.
+type UnitOfWork interface {
+	Begin(ctx context.Context) (Tx, error)
+}
 
 // Repository é o contrato genérico de persistência por domínio. Adapters
 // concretos (ex.: BaseRepo em internal/repositories/base_repository) o
-// implementam estruturalmente. Toda operação de I/O recebe context.Context
-// para propagar cancelamento/deadline/tracing até o banco.
+// implementam estruturalmente. Operações de leitura usam o pool; as mutadoras
+// (Create/Edit/Delete) recebem uma Tx aberta pela UnitOfWork. Toda operação
+// recebe context.Context para propagar cancelamento/deadline/tracing.
 type Repository[dom Domain] interface {
 	Get(ctx context.Context, domain dom, field string, value string) (*dom, error)
-	Create(ctx context.Context, data dom, tx *sqlx.Tx, autoCommit bool) error
 	List(ctx context.Context, domain dom, limit int, offset int) (*[]dom, error)
 	Search(ctx context.Context, domain dom, field string, value string) (*[]dom, error)
-	Edit(ctx context.Context, data dom, field string, value string) (int, error)
-	Delete(ctx context.Context, domain dom, field string, values string) error
 	Count(ctx context.Context, data dom) (int64, error)
-	InitTX(ctx context.Context) (*sqlx.Tx, error)
-	Commit(tx *sqlx.Tx) error
-	Rollback(tx *sqlx.Tx, err error) error
+	Create(ctx context.Context, tx Tx, data dom) error
+	Edit(ctx context.Context, tx Tx, data dom, field string, value string) (int, error)
+	Delete(ctx context.Context, tx Tx, data dom, field string, value string) error
 }
 
 // Domain é o conjunto mínimo de métodos que toda struct de domínio precisa

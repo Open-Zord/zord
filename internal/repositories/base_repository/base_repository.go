@@ -8,32 +8,16 @@ import (
 
 	"github.com/fatih/structs"
 	"github.com/jmoiron/sqlx"
+
+	"github.com/Open-Zord/zord/internal/application/providers/baserepo"
 )
 
-type BaseRepository[dom Domain] interface {
-	Get(ctx context.Context, domain dom, field string, value string) (*dom, error)
-	Create(ctx context.Context, data dom, tx *sqlx.Tx, autoCommit bool) error
-	List(ctx context.Context, domain dom, limit int, offset int) (*[]dom, error)
-	Search(ctx context.Context, domain dom, field string, value string) (*[]dom, error)
-	Edit(ctx context.Context, data dom, field string, value string) (int, error)
-	Delete(ctx context.Context, domain dom, field string, values string) error
-	Count(ctx context.Context, Data dom) (int64, error)
-	InitTX(ctx context.Context) (*sqlx.Tx, error)
-	Commit(tx *sqlx.Tx) error
-	Rollback(tx *sqlx.Tx, err error) error
-}
-
-type Domain interface {
-	Schema() string
-	SoftDelete() string
-}
-
-type BaseRepo[dom Domain] struct {
+type BaseRepo[dom baserepo.Domain] struct {
 	Mysql  *sqlx.DB
 	fields []string
 }
 
-func NewBaseRepository[dom Domain](mysql *sqlx.DB) *BaseRepo[dom] {
+func NewBaseRepository[dom baserepo.Domain](mysql *sqlx.DB) *BaseRepo[dom] {
 	do := new(dom) // *dom: ponteiro-para-struct é a forma esperada por structs.
 	if !structs.IsStruct(do) {
 		panic(fmt.Sprintf("base_repository: domínio %T não é struct", *do))
@@ -56,6 +40,39 @@ func NewBaseRepository[dom Domain](mysql *sqlx.DB) *BaseRepo[dom] {
 		Mysql:  mysql,
 		fields: listFields,
 	}
+}
+
+// txWrapper adapta *sqlx.Tx ao baserepo.Tx abstrato.
+type txWrapper struct{ tx *sqlx.Tx }
+
+func (t txWrapper) Commit() error   { return t.tx.Commit() }
+func (t txWrapper) Rollback() error { return t.tx.Rollback() }
+
+// UoW implementa baserepo.UnitOfWork sobre um *sqlx.DB.
+type UoW struct {
+	db *sqlx.DB
+}
+
+func NewUoW(db *sqlx.DB) *UoW {
+	return &UoW{db: db}
+}
+
+func (u *UoW) Begin(ctx context.Context) (baserepo.Tx, error) {
+	tx, err := u.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return txWrapper{tx: tx}, nil
+}
+
+// sqlxTxFrom recupera a *sqlx.Tx concreta de um baserepo.Tx. Erro explícito se
+// vier uma Tx de outra implementação (nunca deve acontecer em runtime).
+func sqlxTxFrom(tx baserepo.Tx) (*sqlx.Tx, error) {
+	w, ok := tx.(txWrapper)
+	if !ok {
+		return nil, fmt.Errorf("base_repository: tx incompatível (%T)", tx)
+	}
+	return w.tx, nil
 }
 
 // quoteIdent cita um identificador SQL (tabela ou coluna) com crases, escapando
@@ -105,22 +122,6 @@ func (repo *BaseRepo[Domain]) columnValues(data *Domain) map[string]any {
 	return out
 }
 
-func (repo *BaseRepo[Domain]) InitTX(ctx context.Context) (*sqlx.Tx, error) {
-	return repo.Mysql.BeginTxx(ctx, nil)
-}
-
-func (repo *BaseRepo[Domain]) Commit(tx *sqlx.Tx) error {
-	return tx.Commit()
-}
-
-func (repo *BaseRepo[Domain]) Rollback(tx *sqlx.Tx, err error) error {
-	rollbErr := tx.Rollback()
-	if rollbErr != nil {
-		return rollbErr
-	}
-	return err
-}
-
 func (repo *BaseRepo[Domain]) Get(ctx context.Context, Data Domain, field string, value string) (*Domain, error) {
 	if !repo.columnAllowed(field) {
 		return nil, fmt.Errorf("get: coluna desconhecida %q", field)
@@ -136,41 +137,6 @@ func (repo *BaseRepo[Domain]) Get(ctx context.Context, Data Domain, field string
 		return nil, err
 	}
 	return &Data, nil
-}
-
-func (repo *BaseRepo[Domain]) Create(ctx context.Context, Data Domain, tx *sqlx.Tx, autoCommit bool) error {
-	namedValues := make([]string, 0, len(repo.fields))
-	for _, field := range repo.fields {
-		namedValues = append(namedValues, ":"+field)
-	}
-	res, err := tx.NamedExecContext(ctx,
-		fmt.Sprintf(
-			`INSERT INTO %s (%s) VALUES (%s)`,
-			quoteIdent(Data.Schema()),
-			strings.Join(quoteIdents(repo.fields), ", "),
-			strings.Join(namedValues, ", "),
-		),
-		Data,
-	)
-	if err != nil {
-		return repo.Rollback(tx, err)
-	}
-
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return repo.Rollback(tx, err)
-	}
-	if affected < 1 {
-		return repo.Rollback(tx, errors.New("error on create, rows not affected"))
-	}
-
-	if autoCommit {
-		if err := tx.Commit(); err != nil {
-			return repo.Rollback(tx, err)
-		}
-	}
-
-	return nil
 }
 
 // List devolve todas as linhas da tabela do Domain dentro do range
@@ -201,93 +167,6 @@ func (repo *BaseRepo[Domain]) List(ctx context.Context, Data Domain, limit int, 
 	return &results, nil
 }
 
-func (repo *BaseRepo[Domain]) Edit(ctx context.Context, Data Domain, field string, value string) (int, error) {
-	if !repo.columnAllowed(field) {
-		return 0, fmt.Errorf("edit: coluna desconhecida %q", field)
-	}
-
-	// Chave do valor de WHERE no map de named params. Prefixo improvável de
-	// colidir com uma tag `db` real do domínio.
-	const whereKey = "zord_where_value"
-	setClauses := make([]string, 0, len(repo.fields))
-	for _, f := range repo.fields {
-		setClauses = append(setClauses, quoteIdent(f)+" = :"+f)
-	}
-	args := repo.columnValues(&Data)
-	args[whereKey] = value
-	query := fmt.Sprintf(
-		"UPDATE %s SET %s WHERE %s = :%s",
-		quoteIdent(Data.Schema()),
-		strings.Join(setClauses, ", "),
-		quoteIdent(field),
-		whereKey,
-	)
-
-	tx, err := repo.Mysql.BeginTxx(ctx, nil)
-	if err != nil {
-		return 0, err
-	}
-
-	res, err := tx.NamedExecContext(ctx, query, args)
-	if err != nil {
-		return 0, repo.Rollback(tx, err)
-	}
-
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return int(affected), repo.Rollback(tx, err)
-	}
-	if affected < 1 {
-		return int(affected), repo.Rollback(tx, nil)
-	}
-
-	if err := repo.Commit(tx); err != nil {
-		return int(affected), repo.Rollback(tx, err)
-	}
-	return int(affected), nil
-}
-
-func (repo *BaseRepo[Domain]) Delete(ctx context.Context, Data Domain, field string, value string) error {
-	if !repo.columnAllowed(field) {
-		return fmt.Errorf("delete: coluna desconhecida %q", field)
-	}
-
-	softDelete := Data.SoftDelete()
-	if softDelete != "" {
-		query := fmt.Sprintf(
-			"UPDATE %s SET %s = NOW() WHERE %s = ?",
-			quoteIdent(Data.Schema()),
-			quoteIdent(softDelete),
-			quoteIdent(field),
-		)
-		return repo.execDelete(ctx, query, value)
-	}
-
-	query := fmt.Sprintf(
-		"DELETE FROM %s WHERE %s = ?",
-		quoteIdent(Data.Schema()),
-		quoteIdent(field),
-	)
-	return repo.execDelete(ctx, query, value)
-}
-
-// execDelete roda um DELETE/soft-delete já montado (identificadores citados,
-// valor parametrizado) e trata "nada afetado" como erro.
-func (repo *BaseRepo[Domain]) execDelete(ctx context.Context, query string, value string) error {
-	res, err := repo.Mysql.ExecContext(ctx, query, value)
-	if err != nil {
-		return err
-	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if affected < 1 {
-		return errors.New("nothing deleted")
-	}
-	return nil
-}
-
 // Count devolve a contagem total de linhas da tabela do Domain. Sem WHERE:
 // counts filtrados viram métodos sob medida no repositório do domínio.
 func (repo *BaseRepo[Domain]) Count(ctx context.Context, Data Domain) (int64, error) {
@@ -311,4 +190,117 @@ func (repo *BaseRepo[Domain]) Search(ctx context.Context, Data Domain, field str
 		return nil, err
 	}
 	return &data, nil
+}
+
+// Create insere Data participando da transação tx. Não commita nem rola: o
+// controle transacional é do orquestrador (service) que abriu a Tx.
+func (repo *BaseRepo[Domain]) Create(ctx context.Context, tx baserepo.Tx, Data Domain) error {
+	sx, err := sqlxTxFrom(tx)
+	if err != nil {
+		return err
+	}
+	namedValues := make([]string, 0, len(repo.fields))
+	for _, field := range repo.fields {
+		namedValues = append(namedValues, ":"+field)
+	}
+	res, err := sx.NamedExecContext(ctx,
+		fmt.Sprintf(
+			`INSERT INTO %s (%s) VALUES (%s)`,
+			quoteIdent(Data.Schema()),
+			strings.Join(quoteIdents(repo.fields), ", "),
+			strings.Join(namedValues, ", "),
+		),
+		Data,
+	)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected < 1 {
+		return errors.New("error on create, rows not affected")
+	}
+	return nil
+}
+
+// Edit atualiza todas as colunas de Data na linha onde field = value,
+// participando da transação tx. Não commita nem rola.
+func (repo *BaseRepo[Domain]) Edit(ctx context.Context, tx baserepo.Tx, Data Domain, field string, value string) (int, error) {
+	if !repo.columnAllowed(field) {
+		return 0, fmt.Errorf("edit: coluna desconhecida %q", field)
+	}
+	sx, err := sqlxTxFrom(tx)
+	if err != nil {
+		return 0, err
+	}
+
+	// Chave do valor de WHERE no map de named params. Prefixo improvável de
+	// colidir com uma tag `db` real do domínio.
+	const whereKey = "zord_where_value"
+	setClauses := make([]string, 0, len(repo.fields))
+	for _, f := range repo.fields {
+		setClauses = append(setClauses, quoteIdent(f)+" = :"+f)
+	}
+	args := repo.columnValues(&Data)
+	args[whereKey] = value
+	query := fmt.Sprintf(
+		"UPDATE %s SET %s WHERE %s = :%s",
+		quoteIdent(Data.Schema()),
+		strings.Join(setClauses, ", "),
+		quoteIdent(field),
+		whereKey,
+	)
+
+	res, err := sx.NamedExecContext(ctx, query, args)
+	if err != nil {
+		return 0, err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return int(affected), err
+	}
+	return int(affected), nil
+}
+
+// Delete remove (ou soft-deleta) a linha onde field = value, participando da
+// transação tx. Não commita nem rola.
+func (repo *BaseRepo[Domain]) Delete(ctx context.Context, tx baserepo.Tx, Data Domain, field string, value string) error {
+	if !repo.columnAllowed(field) {
+		return fmt.Errorf("delete: coluna desconhecida %q", field)
+	}
+	sx, err := sqlxTxFrom(tx)
+	if err != nil {
+		return err
+	}
+
+	var query string
+	if softDelete := Data.SoftDelete(); softDelete != "" {
+		query = fmt.Sprintf(
+			"UPDATE %s SET %s = NOW() WHERE %s = ?",
+			quoteIdent(Data.Schema()),
+			quoteIdent(softDelete),
+			quoteIdent(field),
+		)
+	} else {
+		query = fmt.Sprintf(
+			"DELETE FROM %s WHERE %s = ?",
+			quoteIdent(Data.Schema()),
+			quoteIdent(field),
+		)
+	}
+
+	res, err := sx.ExecContext(ctx, query, value)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected < 1 {
+		return errors.New("nothing deleted")
+	}
+	return nil
 }
