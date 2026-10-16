@@ -48,6 +48,9 @@ type txWrapper struct{ tx *sqlx.Tx }
 func (t txWrapper) Commit() error   { return t.tx.Commit() }
 func (t txWrapper) Rollback() error { return t.tx.Rollback() }
 
+// UoWRegistryKey identifica a *UoW no pkg/registry.
+const UoWRegistryKey = "unitOfWork"
+
 // UoW implementa baserepo.UnitOfWork sobre um *sqlx.DB.
 type UoW struct {
 	db *sqlx.DB

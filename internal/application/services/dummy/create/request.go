@@ -1,7 +1,10 @@
 package create
 
-// Data agrega os campos de entrada validáveis do use case Create.
-type Data struct{}
+// Data agrega os campos de entrada do use case Create.
+type Data struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
 
 // Request encapsula Data para o Execute do Service.
 type Request struct {
