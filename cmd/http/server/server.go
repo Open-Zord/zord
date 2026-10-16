@@ -2,6 +2,8 @@ package server
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/Open-Zord/zord/cmd/http/routes"
 	"github.com/Open-Zord/zord/docs"
 	"github.com/Open-Zord/zord/pkg/config"
@@ -59,4 +61,5 @@ func (hs *Server) Start() {
 
 func (hs *Server) Shutdown(err error) {
 	hs.logger.Critical(err, "Unable to start server, Shutdown")
+	os.Exit(1)
 }

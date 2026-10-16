@@ -1,7 +1,7 @@
 package database
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/Open-Zord/zord/pkg/logger"
 
@@ -40,7 +40,9 @@ func NewMySQL(
 	}
 }
 
-func (m *MySQL) Connect() {
+// Connect abre e valida (Ping) a conexão, armazenando-a em DB. Devolve error em
+// vez de derrubar o processo — a decisão de abortar o boot é do composition root.
+func (m *MySQL) Connect() error {
 	config := mysql.Config{
 		User:      m.dbUser,
 		Passwd:    m.dbPass,
@@ -52,12 +54,13 @@ func (m *MySQL) Connect() {
 
 	conn, err := sqlx.Open("mysql", config.FormatDSN())
 	if err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("abrir conexão mysql: %w", err)
 	}
 	conn.SetMaxOpenConns(5)
 	conn.SetMaxIdleConns(3)
 	if err := conn.Ping(); err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("ping mysql: %w", err)
 	}
 	m.DB = conn
+	return nil
 }

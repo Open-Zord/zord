@@ -57,8 +57,10 @@ func (l *Logger) Error(err error, fields ...string) {
 		Caller(1).Msg(err.Error())
 }
 
+// Critical loga em nível fatal mas NÃO encerra o processo (diferente de
+// zerolog.Fatal): a decisão de sair é de quem chama, no edge (ex.: o server).
 func (l *Logger) Critical(err error, fields ...string) {
-	l.logger.Fatal().Str("service", l.service).Strs(
+	l.logger.WithLevel(zerolog.FatalLevel).Str("service", l.service).Strs(
 		"context", fields).
 		Caller(1).Msg(err.Error())
 }

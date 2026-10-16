@@ -27,7 +27,9 @@ func registerPkg(reg *registry.Registry, conf *config.Config) {
 		conf.ReadConfig("DB_PORT"),
 		conf.ReadConfig("DB_DATABASE"),
 	)
-	db.Connect()
+	if err := db.Connect(); err != nil {
+		panic(err)
+	}
 
 	val := validator.NewValidator()
 	val.Boot()
