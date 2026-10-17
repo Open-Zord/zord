@@ -634,13 +634,19 @@ func ValidateRepositoryInterfacesImplemented(root string) error {
 					if !ok {
 						continue
 					}
-					if _, ok := typeSpec.Type.(*ast.StructType); ok {
-						// Verifica se struct implementa a interface (nomes iguais)
-						for _, method := range typeSpec.Name.Obj.Decl.(*ast.TypeSpec).Type.(*ast.StructType).Fields.List {
-							if len(method.Names) > 0 && method.Names[0].Name == iface {
-								found = true
-								return nil
-							}
+					// Reaproveita o StructType já verificado, em vez de reobtê-lo
+					// via typeSpec.Name.Obj.Decl com casts em cadeia sem `, ok`
+					// (que davam panic se Obj fosse nil ou o Decl não fosse o
+					// esperado — justamente o que o gate proíbe no código alheio).
+					st, ok := typeSpec.Type.(*ast.StructType)
+					if !ok {
+						continue
+					}
+					// Heurística atual: procura um campo nomeado igual à interface.
+					for _, field := range st.Fields.List {
+						if len(field.Names) > 0 && field.Names[0].Name == iface {
+							found = true
+							return nil
 						}
 					}
 				}
