@@ -252,6 +252,27 @@ func getLayerAllowedImports(configPath string) map[string][]string {
 	return layerAllowed
 }
 
+// importMatchesLayer reporta se o import path casa com um prefixo de camada
+// permitido respeitando a borda de segmento. Os valores da allow-list (ex.:
+// "internal/application/domain") são comparados contra o import path completo
+// (module-qualificado) como um ou mais segmentos inteiros — nunca como
+// substring solta. Assim "internal/application/domain" casa
+// ".../internal/application/domain" e ".../internal/application/domain/dummy",
+// mas NÃO ".../internal/application/domain_evil" (o bug do antigo
+// strings.Contains, que permitia pacotes-irmão com prefixo comum).
+func importMatchesLayer(importPath, allowed string) bool {
+	if importPath == allowed {
+		return true
+	}
+	if strings.HasPrefix(importPath, allowed+"/") {
+		return true
+	}
+	if strings.HasSuffix(importPath, "/"+allowed) {
+		return true
+	}
+	return strings.Contains(importPath, "/"+allowed+"/")
+}
+
 // Exemplo de função utilitária para formatar erro com linha
 func errorWithPos(fset *token.FileSet, node ast.Node, path, msg string) string {
 	if node != nil && fset != nil {
@@ -294,7 +315,7 @@ func ValidateLayerDependencies(root string) error {
 				}
 				allowed := false
 				for _, allowedImport := range allowedImports {
-					if importPath == allowedImport || strings.Contains(importPath, allowedImport) {
+					if importMatchesLayer(importPath, allowedImport) {
 						allowed = true
 						break
 					}
