@@ -167,23 +167,40 @@ func isStdLib(importPath string) bool {
 	return !strings.Contains(importPath, ".")
 }
 
-// ValidateDbQueriesInRepositories garante que comandos de query no banco só estejam em repositories
+// queryFuncNames são nomes de função cuja chamada direta (não-método) denota
+// acesso a banco e, por isso, só é permitida dentro de repositories.
+var queryFuncNames = map[string]struct{}{
+	"Exec": {}, "Query": {}, "QueryRow": {}, "Raw": {}, "Find": {}, "Where": {},
+	"Select": {}, "Update": {}, "Delete": {}, "Insert": {}, "Scan": {}, "Rows": {},
+	"Transaction": {}, "Begin": {}, "Commit": {}, "Rollback": {},
+}
+
+// ValidateDbQueriesInRepositories garante que comandos de query no banco só
+// estejam em repositories.
+//
+// Via AST (não mais regex sobre texto bruto): percorre as CallExpr e sinaliza
+// apenas as cujo Fun é um identificador simples (chamada direta de função) com
+// nome de query. Chamadas de método/pacote (SelectorExpr, ex.: db.Query(...))
+// são permitidas, e ocorrências em comentários/strings não geram falso-positivo.
 func ValidateDbQueriesInRepositories(root string) error {
-	var errors []string
+	var violations []string
 	internalPath := filepath.Join(root, "internal")
-	queryFuncs := []string{
-		"Exec", "Query", "QueryRow", "Raw", "Find", "Where", "Select", "Update", "Delete", "Insert", "Scan", "Rows", "Transaction", "Begin", "Commit", "Rollback",
+	if _, statErr := os.Stat(internalPath); os.IsNotExist(statErr) {
+		return nil
 	}
 
-	_ = filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
+	err := filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return fmt.Errorf("acessar %s: %w", path, err)
+		}
+		if info.IsDir() || !strings.HasSuffix(path, ".go") {
 			return nil
 		}
 		if strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
 		// Permitir arquivos dentro de /internal/repositories/ (implementação) e
-		// /internal/application/domain/baserepo/ (port que declara as
+		// /internal/application/providers/baserepo/ (port que declara as
 		// assinaturas das queries sem implementá-las).
 		sep := string(os.PathSeparator)
 		if strings.Contains(path, sep+"repositories"+sep) {
@@ -192,27 +209,32 @@ func ValidateDbQueriesInRepositories(root string) error {
 		if strings.Contains(path, sep+"providers"+sep+"baserepo"+sep) {
 			return nil
 		}
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return nil
+		fset := token.NewFileSet()
+		f, perr := parser.ParseFile(fset, path, nil, 0)
+		if perr != nil {
+			return fmt.Errorf("parse %s: %w", path, perr)
 		}
-		code := string(content)
-		for _, q := range queryFuncs {
-			// Regex: ^|\W q(  => chamada de função simples (não método)
-			funcCall := regexp.MustCompile(`(^|\W)` + q + `\s*\(`)
-			if funcCall.MatchString(code) {
-				// Agora, se for precedido por ponto (método), ignore
-				methodCall := regexp.MustCompile(`\w+\.` + q + `\s*\(`)
-				if methodCall.MatchString(code) {
-					continue // É método, permitido
-				}
-				errors = append(errors, path+": uso de comando de query ('"+q+"') fora de repositories (chamada direta de função)")
+		ast.Inspect(f, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
 			}
-		}
+			ident, ok := call.Fun.(*ast.Ident)
+			if !ok {
+				return true // método/pacote (SelectorExpr) — permitido
+			}
+			if _, isQuery := queryFuncNames[ident.Name]; isQuery {
+				violations = append(violations, errorWithPos(fset, call, path, "uso de comando de query ('"+ident.Name+"') fora de repositories (chamada direta de função)"))
+			}
+			return true
+		})
 		return nil
 	})
-	if len(errors) > 0 {
-		return fmt.Errorf("validação de queries no banco falhou:\n%s", strings.Join(errors, "\n"))
+	if err != nil {
+		return err
+	}
+	if len(violations) > 0 {
+		return fmt.Errorf("validação de queries no banco falhou:\n%s", strings.Join(violations, "\n"))
 	}
 	return nil
 }
@@ -533,29 +555,43 @@ func ValidateContextUsage(root string) error {
 		filepath.Join(root, "internal/application/providers/baserepo"),
 	}
 	internalPath := filepath.Join(root, "internal")
-	var errors []string
-	_ = filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
+	var violations []string
+	if _, statErr := os.Stat(internalPath); os.IsNotExist(statErr) {
+		return nil
+	}
+	err := filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return fmt.Errorf("acessar %s: %w", path, err)
+		}
+		if info.IsDir() || !strings.HasSuffix(path, ".go") {
 			return nil
 		}
-		// Se está em services ou repositories, pode usar context
+		// Se está em services, repositories ou no port baserepo, pode usar context.
 		for _, dir := range dirsPermitidos {
 			if strings.HasPrefix(path, dir) {
 				return nil
 			}
 		}
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return nil
+		fset := token.NewFileSet()
+		// ImportsOnly basta: usar context.Context sem importar "context" não
+		// compila, então o import é o sinal fiel — e comentários/strings
+		// mencionando context deixam de gerar falso-positivo.
+		f, perr := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
+		if perr != nil {
+			return fmt.Errorf("parse %s: %w", path, perr)
 		}
-		code := string(content)
-		if strings.Contains(code, "\"context\"") || strings.Contains(code, "context.Context") {
-			errors = append(errors, path+": uso proibido de context/context.Context fora de services ou repositories")
+		for _, imp := range f.Imports {
+			if strings.Trim(imp.Path.Value, "\"") == "context" {
+				violations = append(violations, errorWithPos(fset, imp, path, "uso proibido de context fora de services/repositories/baserepo"))
+			}
 		}
 		return nil
 	})
-	if len(errors) > 0 {
-		return fmt.Errorf("validação de uso de context falhou:\n%s", strings.Join(errors, "\n"))
+	if err != nil {
+		return err
+	}
+	if len(violations) > 0 {
+		return fmt.Errorf("validação de uso de context falhou:\n%s", strings.Join(violations, "\n"))
 	}
 	return nil
 }
@@ -1019,44 +1055,76 @@ func ValidateDomainNaming(root string) error {
 	return nil
 }
 
-// ValidateTypeAssertions garante que type assertions (.()) só sejam usados em camadas permitidas
+// ValidateTypeAssertions garante que type assertions não sejam usadas na forma
+// de valor único (x.(T)), que dá panic quando o tipo não bate. Só são
+// permitidas a forma vírgula-ok (v, ok := x.(T) / v, ok = x.(T)) e o type
+// switch (x.(type)).
+//
+// Via AST (não mais varredura de texto por ".("): coleta as TypeAssertExpr que
+// aparecem como único RHS de uma atribuição com dois LHS (a forma vírgula-ok
+// segura) e sinaliza qualquer outra TypeAssertExpr com tipo explícito. O type
+// switch tem Type nil e é ignorado; ".(" em comentários/strings não conta.
 func ValidateTypeAssertions(root string) error {
-	internalPath := filepath.Join(root, "internal")
-	pkgPath := filepath.Join(root, "pkg")
-	var errors []string
-	checkDir := func(basePath string) {
-		_ = filepath.Walk(basePath, func(path string, info os.FileInfo, err error) error {
-			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
+	var violations []string
+	checkDir := func(basePath string) error {
+		if _, statErr := os.Stat(basePath); os.IsNotExist(statErr) {
+			return nil // raiz de camada ausente: nada a validar (não é erro)
+		}
+		return filepath.Walk(basePath, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return fmt.Errorf("acessar %s: %w", path, err)
+			}
+			if info.IsDir() || !strings.HasSuffix(path, ".go") {
 				return nil
 			}
 			if strings.HasSuffix(path, "_test.go") {
 				return nil
 			}
-			content, err := os.ReadFile(path)
-			if err != nil {
-				return nil
+			fset := token.NewFileSet()
+			f, perr := parser.ParseFile(fset, path, nil, 0)
+			if perr != nil {
+				return fmt.Errorf("parse %s: %w", path, perr)
 			}
-			lines := strings.Split(string(content), "\n")
-			for i, line := range lines {
-				idx := strings.Index(line, ".(")
-				if idx != -1 {
-					suffix := line[idx+3:]
-					if strings.HasPrefix(strings.TrimSpace(suffix), "type") {
-						continue
-					}
-					if strings.Contains(line, ", ok :=") || strings.Contains(line, ",ok :=") {
-						continue
-					}
-					errors = append(errors, fmt.Sprintf("%s:%d: uso de type assertion (.()) não permitido (apenas type switch ou type assertion seguro com vírgula ok)", path, i+1))
+			// 1ª passada: marca as assertions na forma vírgula-ok segura.
+			safe := make(map[*ast.TypeAssertExpr]struct{})
+			ast.Inspect(f, func(n ast.Node) bool {
+				assign, ok := n.(*ast.AssignStmt)
+				if !ok {
+					return true
 				}
-			}
+				if len(assign.Lhs) == 2 && len(assign.Rhs) == 1 {
+					if ta, ok := assign.Rhs[0].(*ast.TypeAssertExpr); ok && ta.Type != nil {
+						safe[ta] = struct{}{}
+					}
+				}
+				return true
+			})
+			// 2ª passada: sinaliza as demais assertions de valor único.
+			ast.Inspect(f, func(n ast.Node) bool {
+				ta, ok := n.(*ast.TypeAssertExpr)
+				if !ok {
+					return true
+				}
+				if ta.Type == nil { // type switch: x.(type)
+					return true
+				}
+				if _, ok := safe[ta]; ok {
+					return true
+				}
+				violations = append(violations, errorWithPos(fset, ta, path, "type assertion de valor único não permitida (use v, ok := x.(T) ou type switch)"))
+				return true
+			})
 			return nil
 		})
 	}
-	checkDir(internalPath)
-	checkDir(pkgPath)
-	if len(errors) > 0 {
-		return fmt.Errorf("validação de type assertions (.()) falhou:\n%s", strings.Join(errors, "\n"))
+	if err := checkDir(filepath.Join(root, "internal")); err != nil {
+		return err
+	}
+	if err := checkDir(filepath.Join(root, "pkg")); err != nil {
+		return err
+	}
+	if len(violations) > 0 {
+		return fmt.Errorf("validação de type assertions (.()) falhou:\n%s", strings.Join(violations, "\n"))
 	}
 	return nil
 }
