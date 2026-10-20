@@ -51,34 +51,31 @@ func (m *Migrator) MigrateAllDomains(tenant string) error {
 	}
 	defer func() { _ = workdir.Close() }()
 
-	params := &atlasexec.SchemaApplyParams{
-		DevURL: "mysql://" + m.dsnTest,
-		To:     "file://" + workdir.Path(),
-		URL:    "mysql://" + m.dsn,
-		Vars: atlasexec.Vars{
-			"database": m.databaseName,
-		},
-		Schema: []string{
-			m.databaseName,
-		},
-	}
-
-	if tenant != "" {
-		params.Vars = atlasexec.Vars{
-			"database": tenant,
-		}
-		params.Schema = []string{
-			tenant,
-		}
-	}
-
-	res, err := client.SchemaApply(context.Background(), params)
+	res, err := client.SchemaApply(context.Background(), m.applyParams(tenant, workdir.Path()))
 	if err != nil {
 		return fmt.Errorf("aplicar migrations: %w", err)
 	}
 	fmt.Printf("Applied %d changes:\n", len(res.Changes.Applied))
 	fmt.Println(strings.Join(res.Changes.Applied, "\n"))
 	return nil
+}
+
+// applyParams monta os parâmetros do SchemaApply. tenant vazio mira o database
+// padrão; caso contrário, o schema/database do tenant. Unifica Vars e Schema
+// num único `database` (antes eram montados com databaseName e reescritos
+// inteiros quando tenant != "").
+func (m *Migrator) applyParams(tenant, workdirPath string) *atlasexec.SchemaApplyParams {
+	database := m.databaseName
+	if tenant != "" {
+		database = tenant
+	}
+	return &atlasexec.SchemaApplyParams{
+		DevURL: "mysql://" + m.dsnTest,
+		To:     "file://" + workdirPath,
+		URL:    "mysql://" + m.dsn,
+		Vars:   atlasexec.Vars{"database": database},
+		Schema: []string{database},
+	}
 }
 
 // Inspect imprime o schema atual do banco descrito pelo HCL.
@@ -91,7 +88,7 @@ func (m *Migrator) Inspect() error {
 
 	res, err := client.SchemaInspect(context.Background(), &atlasexec.SchemaInspectParams{
 		DevURL: "mysql://" + m.dsnTest,
-		URL:    "mysql://" + m.dsn,
+		URL:    inspectURL(m.dsn, ""),
 	})
 	if err != nil {
 		return fmt.Errorf("inspecionar schema: %w", err)
@@ -108,19 +105,34 @@ func (m *Migrator) Generate(schemaName string, database string) error {
 	}
 	defer func() { _ = workdir.Close() }()
 
-	if database != "" {
-		database = "/" + database
-	}
 	res, err := client.SchemaInspect(context.Background(), &atlasexec.SchemaInspectParams{
 		DevURL: "mysql://" + m.dsnTest,
-		URL:    "mysql://" + m.dsn + database,
+		URL:    inspectURL(m.dsn, database),
 	})
 	if err != nil {
 		return fmt.Errorf("inspecionar schema: %w", err)
 	}
-	out := "schemas/" + schemaName + ".my.hcl"
-	if err := os.WriteFile(out, []byte(res), 0o600); err != nil {
-		return fmt.Errorf("gravar %s: %w", out, err)
+	if _, err := writeSchema(schemaName, res); err != nil {
+		return err
 	}
 	return nil
+}
+
+// inspectURL monta a URL mysql do banco a inspecionar. database vazio mira a
+// conexão sem database específico; caso contrário, acrescenta "/<database>".
+func inspectURL(dsn, database string) string {
+	if database != "" {
+		database = "/" + database
+	}
+	return "mysql://" + dsn + database
+}
+
+// writeSchema grava o HCL inspecionado em schemas/<schemaName>.my.hcl com
+// permissão 0o600 e devolve o caminho relativo escrito.
+func writeSchema(schemaName, hcl string) (string, error) {
+	out := "schemas/" + schemaName + ".my.hcl"
+	if err := os.WriteFile(out, []byte(hcl), 0o600); err != nil {
+		return "", fmt.Errorf("gravar %s: %w", out, err)
+	}
+	return out, nil
 }
