@@ -386,11 +386,11 @@ func TestValidateScaffoldLayout_Repository_SemDomain(t *testing.T) {
 
 func TestValidateScaffoldLayout_Repository_BaseRepositoryPermitido(t *testing.T) {
 	files := fullOK()
-	files["internal/repositories/base_repository/base_repository.go"] = "package base_repository\n"
-	files["internal/repositories/base_repository/query_builder.go"] = "package base_repository\n"
+	files["internal/repositories/baserepository/baserepository.go"] = "package baserepository\n"
+	files["internal/repositories/baserepository/query_builder.go"] = "package baserepository\n"
 	root := setupFakeRepo(t, files)
 	if err := ValidateScaffoldLayout(root); err != nil {
-		t.Fatalf("base_repository/ não deveria virar violação: %v", err)
+		t.Fatalf("baserepository/ não deveria virar violação: %v", err)
 	}
 }
 

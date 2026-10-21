@@ -24,5 +24,11 @@ func Setup() (reg *registry.Registry, apiPrefix string) {
 	registerServices(reg)
 	registerHandlers(reg)
 
+	// Gate de boot: handlers já foram construídos eagerly acima (resolvem tudo,
+	// panicam se faltar); Validate confere o complemento (sem deps nil).
+	if err := reg.Validate(); err != nil {
+		panic(err)
+	}
+
 	return reg, apiPrefix
 }

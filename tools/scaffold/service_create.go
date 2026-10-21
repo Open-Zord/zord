@@ -242,7 +242,7 @@ func buildRequestFile(pkg, verb string) ([]byte, error) {
 //	}
 //
 //	// NewService constrói o Service com suas dependências.
-//	func NewService(logger services.Logger, idCreator services.IdCreator) *Service { ... }
+//	func NewService(logger services.Logger, idCreator services.IDCreator) *Service { ... }
 //
 //	// Execute roda o use case <Verb>.
 //	func (s *Service) Execute(_ context.Context, request *Request) (*Response, error) { ... }
@@ -279,7 +279,7 @@ func buildServiceFile(pkg, verb string, imp importPaths) ([]byte, error) {
 		Type: Sel("baseservice", "BaseService"),
 		Elts: []ast.Expr{
 			&ast.KeyValueExpr{Key: Ident("Logger"), Value: Ident("logger")},
-			&ast.KeyValueExpr{Key: Ident("Ulid"), Value: Ident("idCreator")},
+			&ast.KeyValueExpr{Key: Ident("ULID"), Value: Ident("idCreator")},
 		},
 	}
 	serviceLit := &ast.CompositeLit{
@@ -295,7 +295,7 @@ func buildServiceFile(pkg, verb string, imp importPaths) ([]byte, error) {
 		"NewService",
 		FieldList(
 			Field("logger", Sel("baseservice", "Logger")),
-			Field("idCreator", Sel("baseservice", "IdCreator")),
+			Field("idCreator", Sel("baseservice", "IDCreator")),
 		),
 		FieldList(AnonField(StarOf(Ident("Service")))),
 		[]ast.Stmt{ReturnStmt(returnNew)},

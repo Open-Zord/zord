@@ -36,5 +36,5 @@ func (h *CreateHandler) Handle(c echo.Context) error {
 	if err != nil {
 		return httperr.Respond(c, err)
 	}
-	return c.JSON(http.StatusOK, out)
+	return c.JSON(http.StatusCreated, out)
 }

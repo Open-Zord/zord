@@ -37,6 +37,30 @@ func TestInjectPanicsWhenMissing(t *testing.T) {
 	r.Inject("nonexistent")
 }
 
+func TestProvidePanicsOnDuplicate(t *testing.T) {
+	r := NewRegistry()
+	r.Provide("dup", "a")
+
+	defer func() {
+		rec := recover()
+		assert.NotNil(t, rec, "expected panic")
+		msg, _ := rec.(string)
+		assert.Contains(t, msg, `"dup"`)
+		assert.Contains(t, msg, "já registrado")
+	}()
+	r.Provide("dup", "b")
+}
+
+func TestValidate(t *testing.T) {
+	r := NewRegistry()
+	r.Provide("ok", "x")
+	assert.NoError(t, r.Validate())
+
+	rNil := NewRegistry()
+	rNil.Provide("bad", nil)
+	assert.Error(t, rNil.Validate())
+}
+
 type sampleSvc struct{ name string }
 
 type sampleSvcPort interface {

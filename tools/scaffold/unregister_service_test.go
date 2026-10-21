@@ -267,14 +267,14 @@ func TestUnregisterService_RoundTripIsByteIdentical(t *testing.T) {
 import (
 	"zord/internal/application/providers/baseservice"
 	"zord/internal/application/services/session/logout"
-	"zord/pkg/idCreator"
+	"zord/pkg/idcreator"
 	"zord/pkg/logger"
 	"zord/pkg/registry"
 )
 
 func registerServices(reg *registry.Registry) {
 	log := registry.Resolve[baseservice.Logger](reg, logger.RegistryKey)
-	idC := registry.Resolve[baseservice.IdCreator](reg, idCreator.RegistryKey)
+	idC := registry.Resolve[baseservice.IDCreator](reg, idcreator.RegistryKey)
 	reg.Provide(logout.RegistryKey, logout.NewService(log, idC))
 }
 `

@@ -73,17 +73,14 @@ func ValidateImports(root string) error {
 	configPath := filepath.Join(filepath.Dir(internalPath), "tools", "arch_analyser", "allowed_imports.toml")
 	allowedPkgs := getAllowedPkgs(configPath)
 
-	return filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-			return err
-		}
+	return walkGoFiles(internalPath, func(path string) error {
 		if strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
 		fset := token.NewFileSet()
 		f, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
 		if err != nil {
-			return err
+			return fmt.Errorf("parse %s: %w", path, err)
 		}
 		for _, imp := range f.Imports {
 			importPath := strings.Trim(imp.Path.Value, "\"")
@@ -107,14 +104,11 @@ func ValidateNewServiceParams(root string) error {
 	var errors []string
 	internalPath := filepath.Join(root, "internal")
 
-	_ = filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-			return nil
-		}
+	walkErr := walkGoFiles(internalPath, func(path string) error {
 		fset := token.NewFileSet()
 		fileAst, err := parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
-			return nil
+			return fmt.Errorf("parse %s: %w", path, err)
 		}
 		conf := types.Config{Importer: importer.Default()}
 		infoTypes := &types.Info{
@@ -156,6 +150,9 @@ func ValidateNewServiceParams(root string) error {
 		}
 		return nil
 	})
+	if walkErr != nil {
+		return walkErr
+	}
 	if len(errors) > 0 {
 		return fmt.Errorf("validação de parâmetros de NewService falhou:\n%s", strings.Join(errors, "\n"))
 	}
@@ -167,23 +164,52 @@ func isStdLib(importPath string) bool {
 	return !strings.Contains(importPath, ".")
 }
 
-// ValidateDbQueriesInRepositories garante que comandos de query no banco só estejam em repositories
-func ValidateDbQueriesInRepositories(root string) error {
-	var errors []string
-	internalPath := filepath.Join(root, "internal")
-	queryFuncs := []string{
-		"Exec", "Query", "QueryRow", "Raw", "Find", "Where", "Select", "Update", "Delete", "Insert", "Scan", "Rows", "Transaction", "Begin", "Commit", "Rollback",
+// walkGoFiles percorre os arquivos .go sob root chamando fn para cada um.
+// Centraliza o tratamento de erro que antes era engolido: um erro de acesso do
+// filepath.Walk (arquivo ilegível) é propagado — falha do gate, não um arquivo
+// que passa despercebido —, e uma raiz ausente é tratada como "nada a
+// percorrer" (não é erro). Diretórios e não-.go são pulados; o filtro de
+// _test.go fica a cargo de fn, pois varia por validador.
+func walkGoFiles(root string, fn func(path string) error) error {
+	if _, err := os.Stat(root); os.IsNotExist(err) {
+		return nil
 	}
-
-	_ = filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
+	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return fmt.Errorf("acessar %s: %w", path, err)
+		}
+		if info.IsDir() || !strings.HasSuffix(path, ".go") {
 			return nil
 		}
+		return fn(path)
+	})
+}
+
+// queryFuncNames são nomes de função cuja chamada direta (não-método) denota
+// acesso a banco e, por isso, só é permitida dentro de repositories.
+var queryFuncNames = map[string]struct{}{
+	"Exec": {}, "Query": {}, "QueryRow": {}, "Raw": {}, "Find": {}, "Where": {},
+	"Select": {}, "Update": {}, "Delete": {}, "Insert": {}, "Scan": {}, "Rows": {},
+	"Transaction": {}, "Begin": {}, "Commit": {}, "Rollback": {},
+}
+
+// ValidateDbQueriesInRepositories garante que comandos de query no banco só
+// estejam em repositories.
+//
+// Via AST (não mais regex sobre texto bruto): percorre as CallExpr e sinaliza
+// apenas as cujo Fun é um identificador simples (chamada direta de função) com
+// nome de query. Chamadas de método/pacote (SelectorExpr, ex.: db.Query(...))
+// são permitidas, e ocorrências em comentários/strings não geram falso-positivo.
+func ValidateDbQueriesInRepositories(root string) error {
+	var violations []string
+	internalPath := filepath.Join(root, "internal")
+
+	err := walkGoFiles(internalPath, func(path string) error {
 		if strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
 		// Permitir arquivos dentro de /internal/repositories/ (implementação) e
-		// /internal/application/domain/baserepo/ (port que declara as
+		// /internal/application/providers/baserepo/ (port que declara as
 		// assinaturas das queries sem implementá-las).
 		sep := string(os.PathSeparator)
 		if strings.Contains(path, sep+"repositories"+sep) {
@@ -192,27 +218,32 @@ func ValidateDbQueriesInRepositories(root string) error {
 		if strings.Contains(path, sep+"providers"+sep+"baserepo"+sep) {
 			return nil
 		}
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return nil
+		fset := token.NewFileSet()
+		f, perr := parser.ParseFile(fset, path, nil, 0)
+		if perr != nil {
+			return fmt.Errorf("parse %s: %w", path, perr)
 		}
-		code := string(content)
-		for _, q := range queryFuncs {
-			// Regex: ^|\W q(  => chamada de função simples (não método)
-			funcCall := regexp.MustCompile(`(^|\W)` + q + `\s*\(`)
-			if funcCall.MatchString(code) {
-				// Agora, se for precedido por ponto (método), ignore
-				methodCall := regexp.MustCompile(`\w+\.` + q + `\s*\(`)
-				if methodCall.MatchString(code) {
-					continue // É método, permitido
-				}
-				errors = append(errors, path+": uso de comando de query ('"+q+"') fora de repositories (chamada direta de função)")
+		ast.Inspect(f, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
 			}
-		}
+			ident, ok := call.Fun.(*ast.Ident)
+			if !ok {
+				return true // método/pacote (SelectorExpr) — permitido
+			}
+			if _, isQuery := queryFuncNames[ident.Name]; isQuery {
+				violations = append(violations, errorWithPos(fset, call, path, "uso de comando de query ('"+ident.Name+"') fora de repositories (chamada direta de função)"))
+			}
+			return true
+		})
 		return nil
 	})
-	if len(errors) > 0 {
-		return fmt.Errorf("validação de queries no banco falhou:\n%s", strings.Join(errors, "\n"))
+	if err != nil {
+		return err
+	}
+	if len(violations) > 0 {
+		return fmt.Errorf("validação de queries no banco falhou:\n%s", strings.Join(violations, "\n"))
 	}
 	return nil
 }
@@ -252,6 +283,27 @@ func getLayerAllowedImports(configPath string) map[string][]string {
 	return layerAllowed
 }
 
+// importMatchesLayer reporta se o import path casa com um prefixo de camada
+// permitido respeitando a borda de segmento. Os valores da allow-list (ex.:
+// "internal/application/domain") são comparados contra o import path completo
+// (module-qualificado) como um ou mais segmentos inteiros — nunca como
+// substring solta. Assim "internal/application/domain" casa
+// ".../internal/application/domain" e ".../internal/application/domain/dummy",
+// mas NÃO ".../internal/application/domain_evil" (o bug do antigo
+// strings.Contains, que permitia pacotes-irmão com prefixo comum).
+func importMatchesLayer(importPath, allowed string) bool {
+	if importPath == allowed {
+		return true
+	}
+	if strings.HasPrefix(importPath, allowed+"/") {
+		return true
+	}
+	if strings.HasSuffix(importPath, "/"+allowed) {
+		return true
+	}
+	return strings.Contains(importPath, "/"+allowed+"/")
+}
+
 // Exemplo de função utilitária para formatar erro com linha
 func errorWithPos(fset *token.FileSet, node ast.Node, path, msg string) string {
 	if node != nil && fset != nil {
@@ -275,17 +327,14 @@ func ValidateLayerDependencies(root string) error {
 
 	for layer, allowedImports := range layerRules {
 		layerPath := layerPaths[layer]
-		_ = filepath.Walk(layerPath, func(path string, info os.FileInfo, err error) error {
-			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-				return nil
-			}
+		if walkErr := walkGoFiles(layerPath, func(path string) error {
 			if strings.HasSuffix(path, "_test.go") {
 				return nil
 			}
 			fset := token.NewFileSet()
 			f, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
 			if err != nil {
-				return nil
+				return fmt.Errorf("parse %s: %w", path, err)
 			}
 			for _, imp := range f.Imports {
 				importPath := strings.Trim(imp.Path.Value, "\"")
@@ -294,7 +343,7 @@ func ValidateLayerDependencies(root string) error {
 				}
 				allowed := false
 				for _, allowedImport := range allowedImports {
-					if importPath == allowedImport || strings.Contains(importPath, allowedImport) {
+					if importMatchesLayer(importPath, allowedImport) {
 						allowed = true
 						break
 					}
@@ -307,7 +356,9 @@ func ValidateLayerDependencies(root string) error {
 				}
 			}
 			return nil
-		})
+		}); walkErr != nil {
+			return walkErr
+		}
 	}
 	if len(errors) > 0 {
 		return fmt.Errorf("validação de dependências entre camadas falhou:\n%s", strings.Join(errors, "\n"))
@@ -506,31 +557,40 @@ func ValidateContextUsage(root string) error {
 	dirsPermitidos := []string{
 		filepath.Join(root, "internal/application/services"),
 		filepath.Join(root, "internal/repositories"),
+		// O port de persistência vive em providers/baserepo e declara as
+		// operações de I/O do repositório — context pertence a esse contrato,
+		// assim como em repositories/.
+		filepath.Join(root, "internal/application/providers/baserepo"),
 	}
 	internalPath := filepath.Join(root, "internal")
-	var errors []string
-	_ = filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-			return nil
-		}
-		// Se está em services ou repositories, pode usar context
+	var violations []string
+	err := walkGoFiles(internalPath, func(path string) error {
+		// Se está em services, repositories ou no port baserepo, pode usar context.
 		for _, dir := range dirsPermitidos {
 			if strings.HasPrefix(path, dir) {
 				return nil
 			}
 		}
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return nil
+		fset := token.NewFileSet()
+		// ImportsOnly basta: usar context.Context sem importar "context" não
+		// compila, então o import é o sinal fiel — e comentários/strings
+		// mencionando context deixam de gerar falso-positivo.
+		f, perr := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
+		if perr != nil {
+			return fmt.Errorf("parse %s: %w", path, perr)
 		}
-		code := string(content)
-		if strings.Contains(code, "\"context\"") || strings.Contains(code, "context.Context") {
-			errors = append(errors, path+": uso proibido de context/context.Context fora de services ou repositories")
+		for _, imp := range f.Imports {
+			if strings.Trim(imp.Path.Value, "\"") == "context" {
+				violations = append(violations, errorWithPos(fset, imp, path, "uso proibido de context fora de services/repositories/baserepo"))
+			}
 		}
 		return nil
 	})
-	if len(errors) > 0 {
-		return fmt.Errorf("validação de uso de context falhou:\n%s", strings.Join(errors, "\n"))
+	if err != nil {
+		return err
+	}
+	if len(violations) > 0 {
+		return fmt.Errorf("validação de uso de context falhou:\n%s", strings.Join(violations, "\n"))
 	}
 	return nil
 }
@@ -539,14 +599,11 @@ func ValidateContextUsage(root string) error {
 func ValidateProvidersArePure(root string) error {
 	providersPath := filepath.Join(root, "internal/application/providers")
 	var errors []string
-	_ = filepath.Walk(providersPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-			return nil
-		}
+	walkErr := walkGoFiles(providersPath, func(path string) error {
 		fset := token.NewFileSet()
 		f, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
 		if err != nil {
-			return nil
+			return fmt.Errorf("parse %s: %w", path, err)
 		}
 		for _, imp := range f.Imports {
 			importPath := strings.Trim(imp.Path.Value, "\"")
@@ -558,6 +615,9 @@ func ValidateProvidersArePure(root string) error {
 		}
 		return nil
 	})
+	if walkErr != nil {
+		return walkErr
+	}
 	if len(errors) > 0 {
 		return fmt.Errorf("validação de pureza dos providers falhou:\n%s", strings.Join(errors, "\n"))
 	}
@@ -572,14 +632,11 @@ func ValidateRepositoryInterfacesImplemented(root string) error {
 	var errors []string
 
 	// 1. Encontrar interfaces em domain que terminam com Repository
-	_ = filepath.Walk(domainPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-			return nil
-		}
+	if walkErr := walkGoFiles(domainPath, func(path string) error {
 		fset := token.NewFileSet()
 		fileAst, err := parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
-			return nil
+			return fmt.Errorf("parse %s: %w", path, err)
 		}
 		for _, decl := range fileAst.Decls {
 			gen, ok := decl.(*ast.GenDecl)
@@ -597,7 +654,9 @@ func ValidateRepositoryInterfacesImplemented(root string) error {
 			}
 		}
 		return nil
-	})
+	}); walkErr != nil {
+		return walkErr
+	}
 
 	// 2. Para cada interface, buscar implementação em repositories
 	for _, ifaceWithPath := range repoInterfaces {
@@ -605,14 +664,11 @@ func ValidateRepositoryInterfacesImplemented(root string) error {
 		iface := parts[0]
 		ifacePath := parts[1]
 		found := false
-		_ = filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-				return nil
-			}
+		if walkErr := walkGoFiles(repoPath, func(path string) error {
 			fset := token.NewFileSet()
 			fileAst, err := parser.ParseFile(fset, path, nil, 0)
 			if err != nil {
-				return nil
+				return fmt.Errorf("parse %s: %w", path, err)
 			}
 			conf := types.Config{Importer: importer.Default()}
 			infoTypes := &types.Info{
@@ -630,19 +686,27 @@ func ValidateRepositoryInterfacesImplemented(root string) error {
 					if !ok {
 						continue
 					}
-					if _, ok := typeSpec.Type.(*ast.StructType); ok {
-						// Verifica se struct implementa a interface (nomes iguais)
-						for _, method := range typeSpec.Name.Obj.Decl.(*ast.TypeSpec).Type.(*ast.StructType).Fields.List {
-							if len(method.Names) > 0 && method.Names[0].Name == iface {
-								found = true
-								return nil
-							}
+					// Reaproveita o StructType já verificado, em vez de reobtê-lo
+					// via typeSpec.Name.Obj.Decl com casts em cadeia sem `, ok`
+					// (que davam panic se Obj fosse nil ou o Decl não fosse o
+					// esperado — justamente o que o gate proíbe no código alheio).
+					st, ok := typeSpec.Type.(*ast.StructType)
+					if !ok {
+						continue
+					}
+					// Heurística atual: procura um campo nomeado igual à interface.
+					for _, field := range st.Fields.List {
+						if len(field.Names) > 0 && field.Names[0].Name == iface {
+							found = true
+							return nil
 						}
 					}
 				}
 			}
 			return nil
-		})
+		}); walkErr != nil {
+			return walkErr
+		}
 		if !found {
 			errors = append(errors, "Interface de repositório sem implementação: '"+iface+"' encontrada em "+ifacePath)
 		}
@@ -665,17 +729,14 @@ func ValidateNoGlobalVars(root string) error {
 	}
 	var errors []string
 	for _, base := range scanDirs {
-		_ = filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
-			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-				return nil
-			}
+		if walkErr := walkGoFiles(base, func(path string) error {
 			if strings.HasSuffix(path, "_test.go") {
 				return nil
 			}
 			fset := token.NewFileSet()
 			fileAst, err := parser.ParseFile(fset, path, nil, 0)
 			if err != nil {
-				return nil
+				return fmt.Errorf("parse %s: %w", path, err)
 			}
 			for _, decl := range fileAst.Decls {
 				gen, ok := decl.(*ast.GenDecl)
@@ -693,7 +754,9 @@ func ValidateNoGlobalVars(root string) error {
 				}
 			}
 			return nil
-		})
+		}); walkErr != nil {
+			return walkErr
+		}
 	}
 	if len(errors) > 0 {
 		return fmt.Errorf("validação de variáveis globais mutáveis falhou:\n%s", strings.Join(errors, "\n"))
@@ -706,10 +769,7 @@ func ValidateOrchestrationOnlyInServices(root string) error {
 	internalPath := filepath.Join(root, "internal")
 	servicesPath := filepath.Join(root, "internal/application/services")
 	var errors []string
-	_ = filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-			return nil
-		}
+	walkErr := walkGoFiles(internalPath, func(path string) error {
 		// Ignorar arquivos em services
 		if strings.HasPrefix(path, servicesPath) {
 			return nil
@@ -717,7 +777,7 @@ func ValidateOrchestrationOnlyInServices(root string) error {
 		fset := token.NewFileSet()
 		f, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
 		if err != nil {
-			return nil
+			return fmt.Errorf("parse %s: %w", path, err)
 		}
 		domainImports := []string{}
 		repoImports := []string{}
@@ -730,15 +790,18 @@ func ValidateOrchestrationOnlyInServices(root string) error {
 				repoImports = append(repoImports, importPath)
 			}
 		}
-		// Permitir explicitamente domínio + base_repository
-		if len(domainImports) == 1 && len(repoImports) == 1 && strings.Contains(repoImports[0], "base_repository") {
+		// Permitir explicitamente domínio + baserepository
+		if len(domainImports) == 1 && len(repoImports) == 1 && strings.Contains(repoImports[0], "baserepository") {
 			return nil
 		}
 		if len(domainImports)+len(repoImports) > 1 {
-			errors = append(errors, errorWithPos(fset, f.Imports[0], path, "orquestração de múltiplos domínios/repositórios fora de services (exceto domínio + base_repository)"))
+			errors = append(errors, errorWithPos(fset, f.Imports[0], path, "orquestração de múltiplos domínios/repositórios fora de services (exceto domínio + baserepository)"))
 		}
 		return nil
 	})
+	if walkErr != nil {
+		return walkErr
+	}
 	if len(errors) > 0 {
 		return fmt.Errorf("validação de orquestração falhou:\n%s", strings.Join(errors, "\n"))
 	}
@@ -754,17 +817,14 @@ func ValidateNamingAndLocation(root string) error {
 	contextPath := filepath.Join(root, "internal/application/context")
 	var errors []string
 	internalPath := filepath.Join(root, "internal")
-	_ = filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-			return nil
-		}
+	walkErr := walkGoFiles(internalPath, func(path string) error {
 		if strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
 		fset := token.NewFileSet()
 		fileAst, err := parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
-			return nil
+			return fmt.Errorf("parse %s: %w", path, err)
 		}
 		for _, decl := range fileAst.Decls {
 			// Domínio: struct PascalCase fora de domain
@@ -822,6 +882,9 @@ func ValidateNamingAndLocation(root string) error {
 		}
 		return nil
 	})
+	if walkErr != nil {
+		return walkErr
+	}
 	if len(errors) > 0 {
 		return fmt.Errorf("validação de nomenclatura/localização falhou:\n%s", strings.Join(errors, "\n"))
 	}
@@ -835,12 +898,8 @@ func ValidateExternalPackagesUsage(root string) error {
 	apperrorPkg := mod + "/pkg/apperror"
 	allowed := map[string][]string{
 		"repositories": {"github.com/jmoiron/sqlx", "github.com/fatih/structs", "github.com/go-sql-driver/mysql"},
-		// TODO: remover sqlx de services quando a refatoração do UnitOfWork
-		// abstrair *sqlx.Tx das interfaces de repositório.
-		"services": {"github.com/rs/zerolog", "github.com/jmoiron/sqlx", apperrorPkg},
-		// providers/baserepo expõe *sqlx.Tx no contrato.
-		// TODO: remover quando o UnitOfWork abstrair Tx.
-		"providers": {"github.com/jmoiron/sqlx"},
+		"services":     {"github.com/rs/zerolog", apperrorPkg},
+		"providers":    {},
 	}
 	layerPaths := map[string]string{
 		"repositories": filepath.Join(root, "internal/repositories"),
@@ -851,17 +910,14 @@ func ValidateExternalPackagesUsage(root string) error {
 	}
 	var errors []string
 	for layer, path := range layerPaths {
-		_ = filepath.Walk(path, func(fpath string, info os.FileInfo, err error) error {
-			if err != nil || info.IsDir() || !strings.HasSuffix(fpath, ".go") {
-				return nil
-			}
+		if walkErr := walkGoFiles(path, func(fpath string) error {
 			if strings.HasSuffix(fpath, "_test.go") {
 				return nil
 			}
 			fset := token.NewFileSet()
 			f, err := parser.ParseFile(fset, fpath, nil, parser.ImportsOnly)
 			if err != nil {
-				return nil
+				return fmt.Errorf("parse %s: %w", fpath, err)
 			}
 			for _, imp := range f.Imports {
 				importPath := strings.Trim(imp.Path.Value, "\"")
@@ -883,7 +939,9 @@ func ValidateExternalPackagesUsage(root string) error {
 				}
 			}
 			return nil
-		})
+		}); walkErr != nil {
+			return walkErr
+		}
 	}
 	if len(errors) > 0 {
 		return fmt.Errorf("validação de uso de pacotes externos falhou:\n%s", strings.Join(errors, "\n"))
@@ -894,21 +952,18 @@ func ValidateExternalPackagesUsage(root string) error {
 // ValidateReflectionUsage garante que o uso de reflect seja restrito a camadas utilitárias ou explicitamente permitidas
 func ValidateReflectionUsage(root string) error {
 	providersPath := filepath.Join(root, "internal/application/providers")
-	repoBasePath := filepath.Join(root, "internal/repositories/base_repository")
+	repoBasePath := filepath.Join(root, "internal/repositories/baserepository")
 	internalPath := filepath.Join(root, "internal")
 	var errors []string
-	_ = filepath.Walk(internalPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-			return nil
-		}
-		// Permitir apenas em providers e base_repository
+	walkErr := walkGoFiles(internalPath, func(path string) error {
+		// Permitir apenas em providers e baserepository
 		if strings.HasPrefix(path, providersPath) || strings.HasPrefix(path, repoBasePath) {
 			return nil
 		}
 		fset := token.NewFileSet()
 		f, err := parser.ParseFile(fset, path, nil, parser.AllErrors)
 		if err != nil {
-			return nil
+			return fmt.Errorf("parse %s: %w", path, err)
 		}
 		for _, imp := range f.Imports {
 			importPath := strings.Trim(imp.Path.Value, "\"")
@@ -923,6 +978,9 @@ func ValidateReflectionUsage(root string) error {
 		}
 		return nil
 	})
+	if walkErr != nil {
+		return walkErr
+	}
 	if len(errors) > 0 {
 		return fmt.Errorf("validação de uso de reflection falhou:\n%s", strings.Join(errors, "\n"))
 	}
@@ -933,17 +991,14 @@ func ValidateReflectionUsage(root string) error {
 func ValidatePkgNoInternalImports(root string) error {
 	pkgPath := filepath.Join(root, "pkg")
 	var errors []string
-	_ = filepath.Walk(pkgPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-			return nil
-		}
+	walkErr := walkGoFiles(pkgPath, func(path string) error {
 		if strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
 		fset := token.NewFileSet()
 		f, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
 		if err != nil {
-			return nil
+			return fmt.Errorf("parse %s: %w", path, err)
 		}
 		for _, imp := range f.Imports {
 			importPath := strings.Trim(imp.Path.Value, "\"")
@@ -953,6 +1008,9 @@ func ValidatePkgNoInternalImports(root string) error {
 		}
 		return nil
 	})
+	if walkErr != nil {
+		return walkErr
+	}
 	if len(errors) > 0 {
 		return fmt.Errorf("validação de isolamento pkg/ falhou:\n%s", strings.Join(errors, "\n"))
 	}
@@ -978,7 +1036,7 @@ func ValidateDomainNaming(root string) error {
 				continue
 			}
 			name := entry.Name()
-			if name == "base_repository" || name == "base_service" || name == "providers" || name == "context" {
+			if name == "baserepository" || name == "base_service" || name == "providers" || name == "context" {
 				continue
 			}
 			if !validName.MatchString(name) {
@@ -992,44 +1050,67 @@ func ValidateDomainNaming(root string) error {
 	return nil
 }
 
-// ValidateTypeAssertions garante que type assertions (.()) só sejam usados em camadas permitidas
+// ValidateTypeAssertions garante que type assertions não sejam usadas na forma
+// de valor único (x.(T)), que dá panic quando o tipo não bate. Só são
+// permitidas a forma vírgula-ok (v, ok := x.(T) / v, ok = x.(T)) e o type
+// switch (x.(type)).
+//
+// Via AST (não mais varredura de texto por ".("): coleta as TypeAssertExpr que
+// aparecem como único RHS de uma atribuição com dois LHS (a forma vírgula-ok
+// segura) e sinaliza qualquer outra TypeAssertExpr com tipo explícito. O type
+// switch tem Type nil e é ignorado; ".(" em comentários/strings não conta.
 func ValidateTypeAssertions(root string) error {
-	internalPath := filepath.Join(root, "internal")
-	pkgPath := filepath.Join(root, "pkg")
-	var errors []string
-	checkDir := func(basePath string) {
-		_ = filepath.Walk(basePath, func(path string, info os.FileInfo, err error) error {
-			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-				return nil
-			}
+	var violations []string
+	checkDir := func(basePath string) error {
+		return walkGoFiles(basePath, func(path string) error {
 			if strings.HasSuffix(path, "_test.go") {
 				return nil
 			}
-			content, err := os.ReadFile(path)
-			if err != nil {
-				return nil
+			fset := token.NewFileSet()
+			f, perr := parser.ParseFile(fset, path, nil, 0)
+			if perr != nil {
+				return fmt.Errorf("parse %s: %w", path, perr)
 			}
-			lines := strings.Split(string(content), "\n")
-			for i, line := range lines {
-				idx := strings.Index(line, ".(")
-				if idx != -1 {
-					suffix := line[idx+3:]
-					if strings.HasPrefix(strings.TrimSpace(suffix), "type") {
-						continue
-					}
-					if strings.Contains(line, ", ok :=") || strings.Contains(line, ",ok :=") {
-						continue
-					}
-					errors = append(errors, fmt.Sprintf("%s:%d: uso de type assertion (.()) não permitido (apenas type switch ou type assertion seguro com vírgula ok)", path, i+1))
+			// 1ª passada: marca as assertions na forma vírgula-ok segura.
+			safe := make(map[*ast.TypeAssertExpr]struct{})
+			ast.Inspect(f, func(n ast.Node) bool {
+				assign, ok := n.(*ast.AssignStmt)
+				if !ok {
+					return true
 				}
-			}
+				if len(assign.Lhs) == 2 && len(assign.Rhs) == 1 {
+					if ta, ok := assign.Rhs[0].(*ast.TypeAssertExpr); ok && ta.Type != nil {
+						safe[ta] = struct{}{}
+					}
+				}
+				return true
+			})
+			// 2ª passada: sinaliza as demais assertions de valor único.
+			ast.Inspect(f, func(n ast.Node) bool {
+				ta, ok := n.(*ast.TypeAssertExpr)
+				if !ok {
+					return true
+				}
+				if ta.Type == nil { // type switch: x.(type)
+					return true
+				}
+				if _, ok := safe[ta]; ok {
+					return true
+				}
+				violations = append(violations, errorWithPos(fset, ta, path, "type assertion de valor único não permitida (use v, ok := x.(T) ou type switch)"))
+				return true
+			})
 			return nil
 		})
 	}
-	checkDir(internalPath)
-	checkDir(pkgPath)
-	if len(errors) > 0 {
-		return fmt.Errorf("validação de type assertions (.()) falhou:\n%s", strings.Join(errors, "\n"))
+	if err := checkDir(filepath.Join(root, "internal")); err != nil {
+		return err
+	}
+	if err := checkDir(filepath.Join(root, "pkg")); err != nil {
+		return err
+	}
+	if len(violations) > 0 {
+		return fmt.Errorf("validação de type assertions (.()) falhou:\n%s", strings.Join(violations, "\n"))
 	}
 	return nil
 }
@@ -1059,10 +1140,7 @@ func ValidateNoHandlerCrossImports(root string) error {
 	}
 
 	var errors []string
-	_ = filepath.Walk(handlersRoot, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-			return nil
-		}
+	walkErr := walkGoFiles(handlersRoot, func(path string) error {
 		if strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
@@ -1073,7 +1151,7 @@ func ValidateNoHandlerCrossImports(root string) error {
 		fset := token.NewFileSet()
 		f, parseErr := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
 		if parseErr != nil {
-			return nil
+			return fmt.Errorf("parse %s: %w", path, parseErr)
 		}
 		for _, imp := range f.Imports {
 			importPath := strings.Trim(imp.Path.Value, "\"")
@@ -1089,6 +1167,9 @@ func ValidateNoHandlerCrossImports(root string) error {
 		}
 		return nil
 	})
+	if walkErr != nil {
+		return walkErr
+	}
 	if len(errors) > 0 {
 		return fmt.Errorf("validação de isolamento entre handlers falhou:\n%s", strings.Join(errors, "\n"))
 	}
@@ -1116,17 +1197,14 @@ func readModulePath(root string) (string, error) {
 // HTTP. Subpacotes auxiliares (sem tipo *Handler) ficam de fora.
 func discoverHandlerPackages(handlersRoot, root, modulePath string) (map[string]struct{}, error) {
 	pkgs := make(map[string]struct{})
-	err := filepath.Walk(handlersRoot, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
-			return nil
-		}
+	err := walkGoFiles(handlersRoot, func(path string) error {
 		if strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
 		fset := token.NewFileSet()
 		f, parseErr := parser.ParseFile(fset, path, nil, 0)
 		if parseErr != nil {
-			return nil
+			return fmt.Errorf("parse %s: %w", path, parseErr)
 		}
 		for _, decl := range f.Decls {
 			gen, ok := decl.(*ast.GenDecl)

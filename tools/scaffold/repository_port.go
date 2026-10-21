@@ -1,7 +1,7 @@
 // Package scaffold (área repository) entrega o scaffold do adapter sqlx do domínio.
 // `repository port` patcha o arquivo do domínio com os métodos e a interface
 // que satisfazem baserepo.Domain; `repository create` gera o arquivo do
-// repositório concreto que embeda *base_repository.BaseRepo[T].
+// repositório concreto que embeda *baserepository.BaseRepo[T].
 package scaffold
 
 import (

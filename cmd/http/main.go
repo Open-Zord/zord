@@ -1,9 +1,9 @@
 package main
 
 import (
-	_ "github.com/go-sql-driver/mysql"
 	httpboot "github.com/Open-Zord/zord/bootstrap/http"
 	"github.com/Open-Zord/zord/cmd/http/server"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 // @title Swagger Zord API

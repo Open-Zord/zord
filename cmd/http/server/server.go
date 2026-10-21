@@ -2,13 +2,14 @@ package server
 
 import (
 	"fmt"
-	echoSwagger "github.com/swaggo/echo-swagger"
-	"github.com/Open-Zord/zord/cmd/http/middlewares"
+	"os"
+
 	"github.com/Open-Zord/zord/cmd/http/routes"
 	"github.com/Open-Zord/zord/docs"
 	"github.com/Open-Zord/zord/pkg/config"
 	"github.com/Open-Zord/zord/pkg/logger"
 	"github.com/Open-Zord/zord/pkg/registry"
+	echoSwagger "github.com/swaggo/echo-swagger"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -43,7 +44,6 @@ func (hs *Server) Start() {
 	}
 
 	server.Use(middleware.Recover())
-	server.Use(middlewares.SetTenant)
 
 	public := server.Group("")
 	private := server.Group("")
@@ -61,4 +61,5 @@ func (hs *Server) Start() {
 
 func (hs *Server) Shutdown(err error) {
 	hs.logger.Critical(err, "Unable to start server, Shutdown")
+	os.Exit(1)
 }

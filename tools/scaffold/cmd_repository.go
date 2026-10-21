@@ -110,7 +110,7 @@ func newRepositoryCreateCmd() *cobra.Command {
 		Use:   "create <Domain>",
 		Short: "Cria o arquivo do repositório concreto que embeda BaseRepo[T]",
 		Long: `Cria internal/repositories/<snake>/<snake>.go com pacote <snake>_repository,
-struct embedando *base_repository.BaseRepo[<snake>.<Domain>] e o constructor
+struct embedando *baserepository.BaseRepo[<snake>.<Domain>] e o constructor
 New<Domain>Repository(mysql *sqlx.DB).
 
 Exige o arquivo do domínio existir e conter a struct <Domain>.

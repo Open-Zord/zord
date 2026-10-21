@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	ariga.io/atlas-go-sdk v0.5.2
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/fatih/structs v1.1.0
 	github.com/go-playground/validator/v10 v10.15.4
 	github.com/go-sql-driver/mysql v1.7.1

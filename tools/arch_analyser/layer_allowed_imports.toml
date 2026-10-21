@@ -6,10 +6,7 @@ allowed = [
   "internal/repositories",
   "internal/application/providers",
   "internal/application/context",
-  "pkg/apperror",
-  # TODO: remover quando a refatoração do UnitOfWork abstrair *sqlx.Tx
-  # das interfaces de repositório expostas ao service layer.
-  "github.com/jmoiron/sqlx"
+  "pkg/apperror"
 ]
 
 [domain]
@@ -24,6 +21,8 @@ allowed = [
 allowed = [
   "internal/application/domain",
   "internal/repositories",
+  # adapter importa o port que implementa (baserepo.Repository/Tx) — hexagonal.
+  "internal/application/providers/baserepo",
   "github.com/fatih/structs",
   "github.com/jmoiron/sqlx",
   "github.com/go-sql-driver/mysql"
@@ -31,10 +30,7 @@ allowed = [
 
 [providers]
 allowed = [
-  "internal/application/providers",
-  # baserepo expõe *sqlx.Tx no contrato.
-  # TODO: remover quando o UnitOfWork abstrair Tx.
-  "github.com/jmoiron/sqlx"
+  "internal/application/providers"
 ]
 
 [context]

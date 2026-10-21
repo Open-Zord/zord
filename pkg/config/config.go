@@ -19,30 +19,30 @@ func NewConfig() *Config {
 	return &Config{}
 }
 
-func (c *Config) ReadConfig(Key string) string {
-	env := os.Getenv(Key)
+func (c *Config) ReadConfig(key string) string {
+	env := os.Getenv(key)
 	if env == "" {
-		panic(fmt.Sprintf("[Config] Unable to read environment variable: %v", Key))
+		panic(fmt.Sprintf("[Config] Unable to read environment variable: %v", key))
 	}
 	return env
 }
 
-func (c *Config) ReadNumberConfig(Key string) int {
-	env := os.Getenv(Key)
+func (c *Config) ReadNumberConfig(key string) int {
+	env := os.Getenv(key)
 	if env == "" {
-		panic(fmt.Sprintf("[Config] Unable to read environment variable: %v", Key))
+		panic(fmt.Sprintf("[Config] Unable to read environment variable: %v", key))
 	}
 	config, err := strconv.Atoi(env)
 	if err != nil {
-		panic(fmt.Sprintf("[Config] environment variable must be an integer: %v", Key))
+		panic(fmt.Sprintf("[Config] environment variable must be an integer: %v", key))
 	}
 	return config
 }
 
-func (c *Config) ReadArrayConfig(Key string) []string {
-	env := os.Getenv(Key)
+func (c *Config) ReadArrayConfig(key string) []string {
+	env := os.Getenv(key)
 	if env == "" {
-		panic(fmt.Sprintf("[Config] Unable to read environment variable: %v", Key))
+		panic(fmt.Sprintf("[Config] Unable to read environment variable: %v", key))
 	}
 	config := strings.Split(env, ",")
 	return config
