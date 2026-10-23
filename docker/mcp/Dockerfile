@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /build
 
@@ -22,7 +22,7 @@ COPY . .
 RUN go build -o /build/mcp cmd/mcp/main.go
 
 # Final stage
-FROM golang:1.22-alpine
+FROM golang:1.26-alpine
 
 WORKDIR /app
 
