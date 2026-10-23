@@ -1,6 +1,8 @@
 module github.com/Open-Zord/zord
 
-go 1.25.0
+go 1.26
+
+toolchain go1.26.1
 
 require (
 	ariga.io/atlas-go-sdk v0.5.2

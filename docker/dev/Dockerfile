@@ -1,5 +1,5 @@
 
-FROM golang:1.23-alpine
+FROM golang:1.26-alpine
 
 ENV GO111MODULE=on
 
@@ -9,7 +9,7 @@ RUN apk add git
 COPY . .
 
 RUN apk add curl
-ENV ATLAS_VERSION=v0.20.1-7793896-canary
+ENV ATLAS_VERSION=v0.29.0
 RUN curl -sSf https://atlasgo.sh | sh
 
 RUN go mod download
