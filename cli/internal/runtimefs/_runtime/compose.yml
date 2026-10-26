@@ -1,0 +1,56 @@
+services:
+  zord-http:
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile
+    container_name: zord-http
+    env_file:
+      - .env
+    ports:
+      - "9000:9000"
+    depends_on:
+      zord-mysql:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '1'
+          memory: 512M
+
+  zord-mysql:
+    image: mysql:latest
+    container_name: zord-mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      start_period: 5s
+      interval: 1s
+      timeout: 5s
+      retries: 2
+    environment:
+        MYSQL_ROOT_PASSWORD: root
+        MYSQL_DATABASE: test
+    ports:
+        - "3307:3306"
+    volumes:
+        - storage:/var/lib/mysql
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1024M
+        reservations:
+          cpus: '2'
+          memory: 1024M
+
+volumes:
+  storage:
+
+networks:
+  default:
+    name: zord-network
+    external: true

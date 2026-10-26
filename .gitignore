@@ -15,11 +15,11 @@ server
 
 # stray artifacts
 excalidraw.log
-# binários de build na raiz (ancorados: não casar com cli/cmd/mcp)
+# binários de build (ancorados: não casar com cli/cmd/mcp nem cli/internal)
 /mcp
 /zord
 /zord-mcp
 /http
-
-# runtime materializado pelo gerador (cli/internal/runtimefs/sync); regenerável
-cli/internal/runtimefs/_runtime/
+/cli/zord
+/cli/mcp
+/cli/cli
