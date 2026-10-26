@@ -13,7 +13,7 @@ const RegistryKey = "validator"
 
 // defaultValidationMessages devolve o mapa canônico de mensagens por tag.
 // Era um `var` global, virou função pra cumprir a regra "sem var global
-// mutável" do arch_analyser sem mudar o ponto de uso.
+// mutável" do archanalyser sem mudar o ponto de uso.
 func defaultValidationMessages() map[string]string {
 	return map[string]string{
 		"alpha":                "The :attribute may only contain letters.",
