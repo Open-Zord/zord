@@ -4,6 +4,9 @@ ENV GO111MODULE="on"
 ENV GOOS="linux"
 ENV CGO_ENABLED=0
 ENV GOGC=70
+# runtime builda standalone (sem o workspace), mantendo a imagem enxuta: o
+# módulo raiz não depende do tooling em cli/, então GOWORK=off evita baixá-lo.
+ENV GOWORK=off
 
 WORKDIR /app
 

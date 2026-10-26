@@ -9,8 +9,9 @@ RUN apk add --no-cache \
     bash \
     sudo
 
-# Copy go mod and sum files
-COPY go.mod go.sum ./
+# Copy module + workspace files (o mcp vive no módulo cli/, em modo workspace)
+COPY go.work go.mod go.sum ./
+COPY cli/go.mod cli/go.sum ./cli/
 
 # Download dependencies
 RUN go mod download
@@ -19,7 +20,7 @@ RUN go mod download
 COPY . .
 
 # Build the MCP server
-RUN go build -o /build/mcp cmd/mcp/main.go
+RUN go build -o /build/mcp ./cli/cmd/mcp
 
 # Final stage
 FROM golang:1.26-alpine
