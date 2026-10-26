@@ -5,11 +5,9 @@ import (
 	"os"
 
 	"github.com/Open-Zord/zord/cmd/http/routes"
-	"github.com/Open-Zord/zord/docs"
 	"github.com/Open-Zord/zord/pkg/config"
 	"github.com/Open-Zord/zord/pkg/logger"
 	"github.com/Open-Zord/zord/pkg/registry"
-	echoSwagger "github.com/swaggo/echo-swagger"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -36,12 +34,6 @@ func (hs *Server) Start() {
 
 	server.HideBanner = true
 	server.HidePort = true
-
-	if hs.config.ReadConfig("ENVIRONMENT") == "development" {
-		docs.SwaggerInfo.Host = "localhost:" + hs.config.ReadConfig("HTTP_PORT")
-		docs.SwaggerInfo.BasePath = "/" + hs.config.ReadConfig("API_PREFIX")
-		server.GET("/swagger/*", echoSwagger.WrapHandler)
-	}
 
 	server.Use(middleware.Recover())
 

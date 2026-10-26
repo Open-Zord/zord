@@ -14,7 +14,6 @@ RUN curl -sSf https://atlasgo.sh | sh
 
 RUN go mod download
 RUN go install github.com/air-verse/air@v1.61.1
-RUN go install github.com/swaggo/swag/cmd/swag@v1.16.4
 RUN apk add build-base
 
 CMD ["air", "http"]
