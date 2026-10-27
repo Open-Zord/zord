@@ -23,14 +23,29 @@ import (
 
 // runtimeTree lista o subtree que compõe o boilerplate emitido por `zord new`.
 // A Fase 1 finaliza este manifesto (ex.: seleção fina de docker/, .env.*); aqui
-// ele estabelece o mecanismo.
+// ele estabelece o mecanismo. `.gitignore` NÃO entra: o do monorepo tem cruft
+// (/zord, _runtime/, etc.) que não deve vazar; um curado é escrito à parte.
 var runtimeTree = []string{
 	"pkg", "internal", "bootstrap", "cmd/http", "schemas",
 	"docker/dev", "docker/prod",
 	"compose.yml", ".air.toml",
-	".env.example", ".env.http", ".gitignore", ".dockerignore",
+	".env.example", ".env.http", ".dockerignore",
 	"go.mod", "go.sum",
 }
+
+// projectGitignore é o .gitignore emitido no projeto gerado — subconjunto
+// relevante p/ uma app, sem o cruft de monorepo do .gitignore da raiz.
+const projectGitignore = `# .env (creds reais) fica local-only; os .env.<entrypoint> são versionados.
+.env
+.idea
+.vscode/
+.DS_Store
+storage
+tmp/*
+temp/
+coverage.out
+server
+`
 
 func main() {
 	root, err := findRepoRoot()
@@ -50,7 +65,10 @@ func main() {
 			log.Fatalf("copiando %s: %v", item, err)
 		}
 	}
-	log.Printf("runtime materializado em %s (%d entradas)", dest, len(runtimeTree))
+	if err := os.WriteFile(filepath.Join(dest, ".gitignore"), []byte(projectGitignore), 0o644); err != nil {
+		log.Fatalf("escrevendo .gitignore: %v", err)
+	}
+	log.Printf("runtime materializado em %s (%d entradas + .gitignore curado)", dest, len(runtimeTree))
 }
 
 // findRepoRoot sobe a partir do cwd até achar go.work (raiz do monorepo).

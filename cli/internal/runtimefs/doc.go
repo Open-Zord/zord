@@ -1,9 +1,15 @@
-// Package runtimefs materializa e (na Fase 1) embarca o runtime subtree do
-// monorepo, que é o boilerplate emitido por `zord new`.
+// Package runtimefs materializa e embarca o runtime subtree do monorepo, que é
+// o boilerplate emitido por `zord new`.
 //
-// Fase 0 define apenas o mecanismo de materialização (comando ./sync): ele
-// copia o subtree da raiz para _runtime/. A diretiva //go:embed e o acesso ao
-// embed.FS entram na Fase 1, apontando para _runtime via `//go:embed all:_runtime`.
+// O comando ./sync (go generate) copia o subtree da raiz para _runtime/, e
+// embed.go o embarca via //go:embed, expondo-o por Runtime().
+//
+// _runtime/ é um artefato GERADO e gitignored — não é cópia versionada no repo,
+// a arquitetura do runtime vive só na raiz. Consequência: num clone limpo é
+// preciso rodar `make embed-sync` (ou `go generate ./...`) antes de compilar o
+// cli, senão o //go:embed falha por falta de arquivos. A forma de empacotar o
+// embed para `go install` (artefato commitado vs. binário pré-compilado) fica
+// pra uma fase posterior de distribuição.
 //
 //go:generate go run ./sync
 package runtimefs

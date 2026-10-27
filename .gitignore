@@ -15,11 +15,15 @@ server
 
 # stray artifacts
 excalidraw.log
-# binários de build na raiz (ancorados: não casar com cli/cmd/mcp)
+# binários de build (ancorados: não casar com cli/cmd/mcp nem cli/internal)
 /mcp
 /zord
 /zord-mcp
 /http
+/cli/zord
+/cli/mcp
+/cli/cli
 
-# runtime materializado pelo gerador (cli/internal/runtimefs/sync); regenerável
+# runtime embarcado é GERADO (make embed-sync), não versionado: a arquitetura do
+# runtime vive só na raiz. Clone limpo precisa de `make embed-sync` antes de buildar o cli.
 cli/internal/runtimefs/_runtime/
