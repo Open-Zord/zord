@@ -3,6 +3,7 @@ package list
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/Open-Zord/zord/internal/skeleton/runtime/cmd/http/httperr"
 	"github.com/Open-Zord/zord/internal/skeleton/runtime/internal/application/services/dummy/list"
@@ -27,10 +28,11 @@ func NewListHandler(reg *registry.Registry) *ListHandler {
 
 // Handle executa o use case List.
 func (h *ListHandler) Handle(c echo.Context) error {
-	var data list.Data
-	if err := c.Bind(&data); err != nil {
-		return httperr.RespondBadRequest(c, err.Error())
-	}
+	// Paginação vem da query (?limit=&offset=); valores inválidos viram 0 e o
+	// Service aplica os defaults.
+	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	offset, _ := strconv.Atoi(c.QueryParam("offset"))
+	data := list.Data{Limit: limit, Offset: offset}
 	req := list.NewRequest(&data)
 	out, err := h.svc.Execute(c.Request().Context(), req)
 	if err != nil {
