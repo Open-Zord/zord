@@ -1,22 +1,17 @@
-// Command zord é o CLI do ecossistema Zord. Fase 1a: só `zord new`.
+// Command zord é o CLI único do ecossistema Zord: cria projetos (new) e expõe
+// as ferramentas (scaffold, arch-analyse, migrate, mcp) como subcomandos. Os
+// comandos vivem em internal/commands.
 package main
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
+	"github.com/Open-Zord/zord/cli/internal/commands"
 )
 
 func main() {
-	root := &cobra.Command{
-		Use:           "zord",
-		Short:         "CLI do ecossistema Zord",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-	}
-	root.AddCommand(newCommand())
-	if err := root.Execute(); err != nil {
+	if err := commands.NewRootCmd().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "[ERRO]", err)
 		os.Exit(1)
 	}

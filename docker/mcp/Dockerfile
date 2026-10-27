@@ -20,7 +20,7 @@ RUN go mod download
 COPY . .
 
 # Build the MCP server
-RUN go build -o /build/mcp ./cli/cmd/mcp
+RUN go build -o /build/zord ./cli/cmd/zord
 
 # Final stage
 FROM golang:1.26-alpine
@@ -39,10 +39,10 @@ ENV ATLAS_VERSION=v0.29.0
 RUN curl -sSf https://atlasgo.sh | sh
 
 # Copy the binary from builder
-COPY --from=builder /build/mcp /usr/local/bin/mcp
+COPY --from=builder /build/zord /usr/local/bin/zord
 
 # Create data directory for mounted volumes
 RUN mkdir -p /app/data
 
 # Set the entrypoint
-ENTRYPOINT ["/usr/local/bin/mcp"] 
+ENTRYPOINT ["/usr/local/bin/zord", "mcp"] 

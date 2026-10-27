@@ -22,7 +22,7 @@ schema "zord" {}
 
 EOF
 
-go build -o /tmp/mcp-bin ./cli/cmd/mcp
+go build -o /tmp/mcp-bin ./cli/cmd/zord
 
 REQ_INIT='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"demo","version":"0"}}}'
 REQ_NOTIF='{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
@@ -34,7 +34,7 @@ call_one() {
   req=$(jq -nc --arg n "$name" --argjson a "$args" --arg id "$id" \
     '{jsonrpc:"2.0", id: ($id | tonumber), method:"tools/call", params:{name:$n, arguments:$a}}')
   { printf '%s\n%s\n%s\n' "$REQ_INIT" "$REQ_NOTIF" "$req"; sleep 0.4; } \
-    | /tmp/mcp-bin --repo "$REPO" 2>/dev/null \
+    | /tmp/mcp-bin mcp --repo "$REPO" 2>/dev/null \
     | jq -c "select(.id==$id)"
 }
 

@@ -5,7 +5,7 @@ expõe o `tools/scaffold/` (gerador AST) e o
 `tools/archanalyser/` (validações de arquitetura) como **tools** e
 **resources** consumíveis por clientes MCP (Claude Code, IDEs, etc.).
 
-Entrypoint: [`cmd/mcp/main.go`](../../cli/cmd/mcp/main.go). Transport: stdio
+Entrypoint: [`cmd/mcp/main.go`](../../cli/cmd/zord/main.go). Transport: stdio
 único. SDK: `github.com/modelcontextprotocol/go-sdk`.
 
 ## Rodar
@@ -16,10 +16,10 @@ O servidor recebe o path do repo alvo via `--repo` (ou env
 
 ```bash
 # direto (desenvolvimento)
-go run ./cli/cmd/mcp --repo .
+go run ./cli/cmd/zord mcp --repo .
 
 # compilado
-go build -o /tmp/mcp-bin ./cli/cmd/mcp
+go build -o /tmp/mcp-bin ./cli/cmd/zord
 /tmp/mcp-bin --repo /caminho/do/repo
 ```
 
@@ -27,7 +27,7 @@ Logs estruturados em **stderr** (stdout é reservado pro framing JSON-RPC).
 
 Para conectar via Claude Code: o arquivo [`.mcp.json`](../../.mcp.json) na
 raiz do projeto já registra `zord-mcp` apontando para
-`go run ./cli/cmd/mcp --repo .`. Em outros clientes, replicar o `command`/
+`go run ./cli/cmd/zord mcp --repo .`. Em outros clientes, replicar o `command`/
 `args` correspondentes.
 
 ### Override per-call do repo (worktrees)
