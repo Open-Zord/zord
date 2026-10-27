@@ -5,7 +5,12 @@ services:
       dockerfile: docker/dev/Dockerfile
     container_name: zord-http
     env_file:
-      - .env
+      - .env.http
+    environment:
+      # No compose, a app alcança o banco pela rede interna (nome do serviço),
+      # não pelo host:porta exposto. Sobrescreve os defaults locais do .env.http.
+      DB_URL: zord-mysql
+      DB_PORT: "3306"
     ports:
       - "9000:9000"
     depends_on:
@@ -33,7 +38,7 @@ services:
       retries: 2
     environment:
         MYSQL_ROOT_PASSWORD: root
-        MYSQL_DATABASE: test
+        MYSQL_DATABASE: zord
     ports:
         - "3307:3306"
     volumes:
@@ -49,8 +54,3 @@ services:
 
 volumes:
   storage:
-
-networks:
-  default:
-    name: zord-network
-    external: true
