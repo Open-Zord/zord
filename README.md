@@ -43,7 +43,10 @@ go install github.com/Open-Zord/zord/cmd/zord@latest
 ```
 
 Zord is a **single module** with no `replace` directives and no code-generation
-step, so `go install` works straight from source. You can also build it locally:
+step, so `go install` works straight from source. Pre-built binaries for
+linux/darwin/windows (amd64/arm64) are published on each
+[GitHub Release](https://github.com/Open-Zord/zord/releases). You can also build
+it locally:
 
 ```sh
 go build -o zord ./cmd/zord

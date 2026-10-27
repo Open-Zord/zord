@@ -17,7 +17,7 @@ type queueCreateInput struct {
 
 func registerQueue(s *mcpsdk.Server, repo string) {
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
-		Name: "scaffold_queue_create",
+		Name:        "scaffold_queue_create",
 		Description: "Cria o esqueleto de um entrypoint de worker de fila: bootstrap/<name>/ (setup, configs, pkg, repositories, services, worker) + cmd/<name>/main.go. Filosofia 1 entrypoint == 1 fila == 1 worker; nome da fila Redis vem do env OMNIQ_QUEUE em runtime. Hoje só driver 'omniq' (github.com/not-empty/omniq-go) é suportado. Após rodar, o usuário precisa de `go mod tidy` no repo alvo pra trazer omniq-go ao go.sum.",
 		Annotations: writingAnnotations("Scaffold: criar queue worker"),
 	}, func(_ context.Context, _ *mcpsdk.CallToolRequest, in queueCreateInput) (*mcpsdk.CallToolResult, CommonOutput, error) {
