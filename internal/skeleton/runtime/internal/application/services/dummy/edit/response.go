@@ -1,4 +1,6 @@
 package edit
 
 // Response agrega a saída do use case Edit.
-type Response struct{}
+type Response struct {
+	Updated int `json:"updated"`
+}
