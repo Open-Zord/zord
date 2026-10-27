@@ -1,62 +1,63 @@
-package migrator
+// Package migrate expõe os comandos de banco do CLI (`zord migrate`, `inspect`,
+// `generate-schema-from-db`), que operam sobre o schema HCL do projeto atual.
+package migrate
 
 import (
 	"fmt"
+	"net/url"
+
+	"github.com/Open-Zord/zord/cli/tools/migrator"
 	"github.com/Open-Zord/zord/pkg/config"
 	"github.com/Open-Zord/zord/pkg/logger"
-	"github.com/Open-Zord/zord/cli/tools/migrator"
-	"net/url"
 
 	"github.com/spf13/cobra"
 )
 
-type Migrator struct {
+type runner struct {
 	dsn      string
 	dsnTest  string
 	database string
 }
 
-func NewMigrator() *Migrator {
-	return &Migrator{}
-}
-
-func (m *Migrator) DeclareCommands(cmd *cobra.Command) {
-	cmd.AddCommand(
-		&cobra.Command{
+// Commands devolve os comandos de banco para o root do CLI.
+func Commands() []*cobra.Command {
+	r := &runner{}
+	return []*cobra.Command{
+		{
 			Use:    "migrate",
 			Short:  "migrate HCL description database",
-			PreRun: m.BootMigrator,
-			RunE:   m.Migrate,
+			PreRun: r.boot,
+			RunE:   r.migrate,
 		},
-		&cobra.Command{
+		{
 			Use:    "inspect",
 			Short:  "inspect HCL description database",
-			PreRun: m.BootMigrator,
-			RunE:   m.Inspect,
+			PreRun: r.boot,
+			RunE:   r.inspect,
 		},
-		&cobra.Command{
+		{
 			Use:    "generate-schema-from-db",
 			Short:  "generate-schema-from-db <schema name> <database name>",
 			Long:   "generate HCL schema from connection on env \ngenerate all databases if <database name> is not provided (all databases generations does`nt work with domain generation from schema)",
-			PreRun: m.BootMigrator,
-			RunE:   m.Generate,
+			PreRun: r.boot,
+			RunE:   r.generate,
 		},
-	)
+	}
 }
 
-func (m *Migrator) Migrate(_ *cobra.Command, args []string) error {
+func (r *runner) migrate(_ *cobra.Command, args []string) error {
 	tenant := ""
 	if len(args) > 0 {
 		tenant = args[0]
 	}
-	return migrator.NewMigrator(m.dsn, m.dsnTest, m.database).MigrateAllDomains(tenant)
+	return migrator.NewMigrator(r.dsn, r.dsnTest, r.database).MigrateAllDomains(tenant)
 }
 
-func (m *Migrator) Inspect(_ *cobra.Command, _ []string) error {
-	return migrator.NewMigrator(m.dsn, m.dsnTest, m.database).Inspect()
+func (r *runner) inspect(_ *cobra.Command, _ []string) error {
+	return migrator.NewMigrator(r.dsn, r.dsnTest, r.database).Inspect()
 }
 
-func (m *Migrator) Generate(_ *cobra.Command, args []string) error {
+func (r *runner) generate(_ *cobra.Command, args []string) error {
 	schema := ""
 	if len(args) > 0 {
 		schema = args[0]
@@ -65,29 +66,25 @@ func (m *Migrator) Generate(_ *cobra.Command, args []string) error {
 	if len(args) > 1 {
 		databaseName = args[1]
 	}
-	return migrator.NewMigrator(m.dsn, m.dsnTest, m.database).Generate(schema, databaseName)
+	return migrator.NewMigrator(r.dsn, r.dsnTest, r.database).Generate(schema, databaseName)
 }
 
-func (m *Migrator) BootMigrator(_ *cobra.Command, _ []string) {
+func (r *runner) boot(_ *cobra.Command, _ []string) {
 	conf := config.NewConfig()
-	err := conf.LoadEnvsForEntrypoint("cli")
-	if err != nil {
+	if err := conf.LoadEnvsForEntrypoint("cli"); err != nil {
 		panic(err)
 	}
 
-	m.database = conf.ReadConfig("DB_DATABASE")
-	dsn := "%s:%s@%s:%s"
-	m.dsn = fmt.Sprintf(
-		dsn,
+	r.database = conf.ReadConfig("DB_DATABASE")
+	r.dsn = fmt.Sprintf(
+		"%s:%s@%s:%s",
 		url.QueryEscape(conf.ReadConfig("DB_USER")),
 		url.QueryEscape(conf.ReadConfig("DB_PASS")),
 		url.QueryEscape(conf.ReadConfig("DB_URL")),
 		conf.ReadConfig("DB_PORT"),
 	)
-
-	testDsn := "%s:%s@%s:%s/%s"
-	m.dsnTest = fmt.Sprintf(
-		testDsn,
+	r.dsnTest = fmt.Sprintf(
+		"%s:%s@%s:%s/%s",
 		conf.ReadConfig("DB_USER"),
 		conf.ReadConfig("DB_PASS"),
 		conf.ReadConfig("DB_URL"),
@@ -95,11 +92,9 @@ func (m *Migrator) BootMigrator(_ *cobra.Command, _ []string) {
 		conf.ReadConfig("DB_TEST_DATABASE"),
 	)
 
-	l := logger.NewLogger(
+	logger.NewLogger(
 		conf.ReadConfig("ENVIRONMENT"),
 		conf.ReadConfig("APP"),
 		conf.ReadConfig("VERSION"),
-	)
-
-	l.Boot()
+	).Boot()
 }

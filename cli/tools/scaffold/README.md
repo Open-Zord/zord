@@ -260,9 +260,9 @@ HCL ainda existe).
 Exemplo:
 
 ```bash
-go run ./cli/cmd/scaffold derive schema Widget --remove
+go run ./cli/cmd/zord scaffold derive schema Widget --remove
 # removido de: schemas/schema.my.hcl
-go run ./cli/cmd/scaffold derive schema Widget --remove
+go run ./cli/cmd/zord scaffold derive schema Widget --remove
 # scaffold: unpatch schemas/schema.my.hcl: sentinela ausente para table "widgets"
 ```
 
@@ -682,21 +682,21 @@ depois.
 
 ```bash
 # escrever o domínio
-go run ./cli/cmd/scaffold domain create Project
-go run ./cli/cmd/scaffold field add Project ID string --tag-db=id --tag-db-pk --tag-validate=required,uuid
-go run ./cli/cmd/scaffold field add Project Name string --tag-db=name --tag-db-size=120
+go run ./cli/cmd/zord scaffold domain create Project
+go run ./cli/cmd/zord scaffold field add Project ID string --tag-db=id --tag-db-pk --tag-validate=required,uuid
+go run ./cli/cmd/zord scaffold field add Project Name string --tag-db=name --tag-db-size=120
 
 # derivar o adapter sqlx
-go run ./cli/cmd/scaffold repository port Project
-go run ./cli/cmd/scaffold repository create Project
+go run ./cli/cmd/zord scaffold repository port Project
+go run ./cli/cmd/zord scaffold repository create Project
 
 # criar use cases (cada verbo em sua própria pasta)
-go run ./cli/cmd/scaffold service create Project Create
-go run ./cli/cmd/scaffold service create Project Get
+go run ./cli/cmd/zord scaffold service create Project Create
+go run ./cli/cmd/zord scaffold service create Project Get
 
 # adapter HTTP — um handler 1:1 por service (pasta + arquivo gerados por verbo)
-go run ./cli/cmd/scaffold handler create Project Create
-go run ./cli/cmd/scaffold handler create Project Get
+go run ./cli/cmd/zord scaffold handler create Project Create
+go run ./cli/cmd/zord scaffold handler create Project Get
 
 # (próximas fatias entregarão route/wire)
 ```
@@ -1006,15 +1006,15 @@ em uma única operação atômica:
 
 ```bash
 # cadeia completa do domain ao registro da rota
-go run ./cli/cmd/scaffold domain create Project
-go run ./cli/cmd/scaffold field add Project ID string --tag-db=id --tag-db-pk
-go run ./cli/cmd/scaffold field add Project Name string --tag-db=name
+go run ./cli/cmd/zord scaffold domain create Project
+go run ./cli/cmd/zord scaffold field add Project ID string --tag-db=id --tag-db-pk
+go run ./cli/cmd/zord scaffold field add Project Name string --tag-db=name
 
-go run ./cli/cmd/scaffold service create Project Create
-go run ./cli/cmd/scaffold handler create Project Create
+go run ./cli/cmd/zord scaffold service create Project Create
+go run ./cli/cmd/zord scaffold handler create Project Create
 
-go run ./cli/cmd/scaffold route create Project
-go run ./cli/cmd/scaffold route add Project Create --method=POST --public
+go run ./cli/cmd/zord scaffold route create Project
+go run ./cli/cmd/zord scaffold route add Project Create --method=POST --public
 ```
 
 Resultado em `cmd/http/routes/project.go`:
@@ -1122,7 +1122,7 @@ gerada pelo shape NAVE-74 resolve os próprios handlers internamente via
 **Exemplo seguindo o domain `Project` do exemplo anterior:**
 
 ```bash
-go run ./cli/cmd/scaffold route register Project
+go run ./cli/cmd/zord scaffold route register Project
 ```
 
 `cmd/http/routes/declarable.go` antes:
@@ -1179,7 +1179,7 @@ da Route já foi apagado à mão).
 **Exemplo (desfazendo o registro do domain `Project` do exemplo anterior):**
 
 ```bash
-go run ./cli/cmd/scaffold route unregister Project
+go run ./cli/cmd/zord scaffold route unregister Project
 ```
 
 `cmd/http/routes/declarable.go` antes:
@@ -1229,10 +1229,10 @@ validação do registro.
 **Exemplo:**
 
 ```bash
-go run ./cli/cmd/scaffold route create Foo
-go run ./cli/cmd/scaffold route delete Foo
+go run ./cli/cmd/zord scaffold route create Foo
+go run ./cli/cmd/zord scaffold route delete Foo
 # removido: cmd/http/routes/foo.go
-go run ./cli/cmd/scaffold route delete Foo
+go run ./cli/cmd/zord scaffold route delete Foo
 # scaffold: arquivo de rotas não existe: cmd/http/routes/foo.go
 ```
 
@@ -1361,25 +1361,25 @@ campo não existirem.
 
 ```bash
 # domain raiz
-go run ./cli/cmd/scaffold domain create UsageRecord
-go run ./cli/cmd/scaffold field add UsageRecord ID string --tag-db=id --tag-db-pk
-go run ./cli/cmd/scaffold field add UsageRecord Namespace string --tag-db=namespace
-go run ./cli/cmd/scaffold field add UsageRecord Cost float64 --tag-db=cost
+go run ./cli/cmd/zord scaffold domain create UsageRecord
+go run ./cli/cmd/zord scaffold field add UsageRecord ID string --tag-db=id --tag-db-pk
+go run ./cli/cmd/zord scaffold field add UsageRecord Namespace string --tag-db=namespace
+go run ./cli/cmd/zord scaffold field add UsageRecord Cost float64 --tag-db=cost
 
 # projection raw (vinda direto de GROUP BY)
-go run ./cli/cmd/scaffold projection create UsageRecord ResourceSummary
-go run ./cli/cmd/scaffold projection field add UsageRecord ResourceSummary ResourceType string
-go run ./cli/cmd/scaffold projection field add UsageRecord ResourceSummary Unit string
-go run ./cli/cmd/scaffold projection field add UsageRecord ResourceSummary Quantity float64
-go run ./cli/cmd/scaffold projection field add UsageRecord ResourceSummary Total float64
+go run ./cli/cmd/zord scaffold projection create UsageRecord ResourceSummary
+go run ./cli/cmd/zord scaffold projection field add UsageRecord ResourceSummary ResourceType string
+go run ./cli/cmd/zord scaffold projection field add UsageRecord ResourceSummary Unit string
+go run ./cli/cmd/zord scaffold projection field add UsageRecord ResourceSummary Quantity float64
+go run ./cli/cmd/zord scaffold projection field add UsageRecord ResourceSummary Total float64
 
 # projection composta (populada em Go, sem db tags exceto onde indicado)
-go run ./cli/cmd/scaffold projection create UsageRecord Summary
-go run ./cli/cmd/scaffold projection field add UsageRecord Summary Namespace string --no-db-tag
-go run ./cli/cmd/scaffold projection field add UsageRecord Summary PeriodStart string --no-db-tag
-go run ./cli/cmd/scaffold projection field add UsageRecord Summary PeriodEnd string --no-db-tag
-go run ./cli/cmd/scaffold projection field add UsageRecord Summary Total float64 --no-db-tag
-go run ./cli/cmd/scaffold projection field add UsageRecord Summary ByResource []ResourceSummary
+go run ./cli/cmd/zord scaffold projection create UsageRecord Summary
+go run ./cli/cmd/zord scaffold projection field add UsageRecord Summary Namespace string --no-db-tag
+go run ./cli/cmd/zord scaffold projection field add UsageRecord Summary PeriodStart string --no-db-tag
+go run ./cli/cmd/zord scaffold projection field add UsageRecord Summary PeriodEnd string --no-db-tag
+go run ./cli/cmd/zord scaffold projection field add UsageRecord Summary Total float64 --no-db-tag
+go run ./cli/cmd/zord scaffold projection field add UsageRecord Summary ByResource []ResourceSummary
 ```
 
 Resultado em `internal/application/domain/usage_record/usage_record.go`:
@@ -1440,7 +1440,7 @@ cobre apenas o lado do domain.
 ## Build
 
 ```bash
-go build ./cli/cmd/scaffold
+go build ./cli/cmd/zord
 ```
 
 O binário resultante (`./scaffold`) opera sobre a raiz do repositório alvo.

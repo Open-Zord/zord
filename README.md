@@ -69,7 +69,7 @@ This command will ensure that a MySQL server is running in the background, allow
 
 to build cli into binary file run
 ``` SHELL
-go build -o zord ./cli/cmd/cli
+go build -o zord ./cli/cmd/zord
 ```
 
 then you can run all cli commands with the binary file
@@ -79,7 +79,7 @@ then you can run all cli commands with the binary file
 
 if you're developing something in the cli the best way is to run it directly so all changes are picked up
 ``` SHELL
-go run ./cli/cmd/cli -h
+go run ./cli/cmd/zord -h
 ```
 
 ---
@@ -88,22 +88,22 @@ go run ./cli/cmd/cli -h
 
 Run architecture analysis over all domains (lint):
 ``` SHELL
-go run ./cli/cmd/cli arch-analyse
+go run ./cli/cmd/zord arch-analyse
 ```
 
 Inspect the database from the HCL description:
 ``` SHELL
-go run ./cli/cmd/cli inspect
+go run ./cli/cmd/zord inspect
 ```
 
 Migrate the database from the HCL description:
 ``` SHELL
-go run ./cli/cmd/cli migrate
+go run ./cli/cmd/zord migrate
 ```
 
 Generate an HCL schema from an existing database:
 ``` SHELL
-go run ./cli/cmd/cli generate-schema-from-db <schema name> <database name>
+go run ./cli/cmd/zord generate-schema-from-db <schema name> <database name>
 ```
 
 ---
@@ -113,7 +113,7 @@ go run ./cli/cmd/cli generate-schema-from-db <schema name> <database name>
 Code generation is done by the `scaffold` binary — an **AST-pure**, layer-by-layer generator. It never templates whole files blindly; it edits the Go AST of the target layer so the output stays compilable and idempotent.
 
 ``` SHELL
-go run ./cli/cmd/scaffold --help
+go run ./cli/cmd/zord scaffold --help
 ```
 
 The generator is organized in command groups, one per architectural layer:
@@ -131,7 +131,7 @@ The generator is organized in command groups, one per architectural layer:
 | `route` | `create`, `add`, `remove`, `delete`, `register`, `unregister` | HTTP route file per domain + registration in `cmd/http/routes/declarable.go` |
 | `projection` | `create`, `field` | Projection structs (return types for aggregate queries) |
 
-Use `go run ./cli/cmd/scaffold <group> --help` and `go run ./cli/cmd/scaffold <group> <subcommand> --help` to see the exact flags for each command.
+Use `go run ./cli/cmd/zord scaffold <group> --help` and `go run ./cli/cmd/zord scaffold <group> <subcommand> --help` to see the exact flags for each command.
 
 **Obs:** When generating code inside a docker container, fix file ownership afterwards with `sudo chown $USER:$USER -R .`.
 
@@ -175,7 +175,7 @@ go tool cover -html=coverage.out
 Want to contribute? Great!
 
 Make a change in your files and be careful with your updates.
-**Any new code is only accepted with all validations passing** — run `go run ./cli/cmd/cli arch-analyse` before opening a PR.
+**Any new code is only accepted with all validations passing** — run `go run ./cli/cmd/zord arch-analyse` before opening a PR.
 
 ---
 
@@ -188,7 +188,7 @@ It provides **32 tools**: the `scaffold_*` family (one per scaffold subcommand �
 #### Running the server
 
 ``` SHELL
-go run ./cli/cmd/mcp --repo .
+go run ./cli/cmd/zord mcp --repo .
 ```
 
 `--repo` sets the target repository the tools operate on (defaults to the current working directory). Each individual tool call can also override the target via an optional `repo` argument.
@@ -203,17 +203,17 @@ The repository ships a ready-to-use client config at `zord-mcp.json`:
     "zord-mcp": {
       "type": "stdio",
       "command": "go",
-      "args": ["run", "./cli/cmd/mcp", "--repo", "."],
+      "args": ["run", "./cli/cmd/zord", "mcp", "--repo", "."],
       "env": {}
     }
   }
 }
 ```
 
-Point your MCP client at this config (or copy the `mcpServers.zord-mcp` entry into your client's settings). If you prefer a prebuilt binary, swap `command`/`args` for the compiled `mcp` binary:
+Point your MCP client at this config (or copy the `mcpServers.zord-mcp` entry into your client's settings). If you prefer a prebuilt binary, build `zord` and run its `mcp` subcommand:
 
 ``` SHELL
-go build -o zord-mcp ./cli/cmd/mcp
+go build -o zord ./cli/cmd/zord
 ```
 
 ```json
@@ -221,8 +221,8 @@ go build -o zord-mcp ./cli/cmd/mcp
   "mcpServers": {
     "zord-mcp": {
       "type": "stdio",
-      "command": "/abs/path/to/mcp",
-      "args": ["--repo", "/abs/path/to/your/repo"],
+      "command": "/abs/path/to/zord",
+      "args": ["mcp", "--repo", "/abs/path/to/your/repo"],
       "env": {}
     }
   }

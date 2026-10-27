@@ -1,4 +1,6 @@
-package main
+// Package newproject expõe o comando `zord new`, que gera um projeto a partir
+// do runtime boilerplate embarcado.
+package newproject
 
 import (
 	"fmt"
@@ -8,10 +10,12 @@ import (
 
 	"github.com/Open-Zord/zord/cli/internal/projectgen"
 	"github.com/Open-Zord/zord/cli/internal/runtimefs"
+
 	"github.com/spf13/cobra"
 )
 
-func newCommand() *cobra.Command {
+// Commands devolve o(s) comando(s) deste grupo para o root do CLI.
+func Commands() []*cobra.Command {
 	var module string
 	var noTidy bool
 
@@ -48,7 +52,7 @@ func newCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&module, "module", "", "module path do go.mod (default: nome do diretório)")
 	cmd.Flags().BoolVar(&noTidy, "no-tidy", false, "pula o go mod tidy no projeto gerado")
-	return cmd
+	return []*cobra.Command{cmd}
 }
 
 // ensureEmpty falha se dest existe e não está vazio.
