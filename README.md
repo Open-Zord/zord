@@ -2,226 +2,164 @@
   <img src="brand.png" alt="Zord" width="480" />
 </p>
 
-# Zord Microframework
+# Zord
 ## Build your mecha
 
+Zord is a Go microframework for hexagonal (ports & adapters) services, delivered
+as a **CLI that scaffolds and maintains your project** — not a library you depend
+on, and not a boilerplate you fork and let rot.
+
 > **Tip for MCP-aware clients (Cursor, Claude, etc.):**
-> To ensure code quality and automatic validations, add the following rule to your client's **User rules**:
+> add this rule to your client's **User rules** so every change is validated:
 >
 > **after each code update, run the `arch_analyze` MCP tool**
->
-> This way, every code change is automatically validated by the architecture analysis tool.
-
-GOlang base repository with an AST-driven code generator to bootstrap a fast Golang project based on hexagonal architecture.
 
 ---
 
-# Development
-> Remember to create your .env file based on .env.example
+## Philosophy — code as asset
 
-### 1. Using Docker Compose
-Up mysql and zord project:
+Zord follows the shadcn model, not the `go get` model:
 
-``` SHELL
-docker compose up
-```
+- **You own the code.** `zord new` emits a complete, runnable project into your
+  repo. There is no hidden framework dependency — the runtime lives in *your*
+  tree, and you edit it like any other code.
+- **Explicit over magic.** Updates are explicit, the architecture gate is a
+  contract, and code generation is AST-pure (it edits the Go AST of the target
+  layer, never blind whole-file templating), so output stays compilable and
+  idempotent.
+- **Guardrails remove the toil.** The architecture gate makes LLM/codegen
+  reliable: generated or hand-written, code is only accepted if it passes.
 
-The compose stack joins an external network named `zord-network`.
-
-<br />
-
-#### 2. Using raw go build
-
-You will need to build the http/main.go file:
-
-``` SHELL
-go build -o server cmd/http/main.go
-```
-
-Then run the server
-
-``` SHELL
-./server
-```
-
-<br />
-
-#### 3. Running from go file
-
-``` SHELL
-go run cmd/http/main.go
-```
-
-<br />
-
-**Note:** To run the local build as described in the second or third option, a MySQL server must be running. This is necessary for the application to interact with its database. The easiest way to set up a MySQL server locally is by using Docker. Below is a command to start a MySQL server container using Docker:
-
-``` SHELL
-docker compose up mysql -d
-```
-This command will ensure that a MySQL server is running in the background, allowing you to execute the local build successfully.
+The generated project's own architecture, layers and day-to-day commands are
+documented in **[`internal/skeleton/runtime/README.md`](internal/skeleton/runtime/README.md)**
+(it ships as your project's README).
 
 ---
 
-### CLI
+## Install
 
-#### build cli
-
-to build cli into binary file run
-``` SHELL
-go build -o zord ./cli/cmd/zord
+```sh
+go install github.com/Open-Zord/zord/cmd/zord@latest
 ```
 
-then you can run all cli commands with the binary file
-``` SHELL
-./zord -h
+Zord is a **single module** with no `replace` directives and no code-generation
+step, so `go install` works straight from source. You can also build it locally:
+
+```sh
+go build -o zord ./cmd/zord
 ```
 
-if you're developing something in the cli the best way is to run it directly so all changes are picked up
-``` SHELL
-go run ./cli/cmd/zord -h
+## Create a project
+
+```sh
+zord new myservice --module github.com/me/myservice
+cd myservice
+docker compose up -d      # MySQL + the app
+zord migrate              # create the tables from the HCL schema
+curl localhost:9000/v1/health
 ```
+
+`zord new <path> [--module <path>] [--no-tidy]` materializes the embedded runtime
+into a fresh, standalone Go module and runs `go mod tidy`. The generated project
+carries **only the runtime** — none of Zord's tooling is copied; you drive it with
+the installed `zord` binary (`zord scaffold …`, `zord arch-analyse`, `zord migrate`).
 
 ---
 
-#### CLI Commands
+## CLI commands
 
-Run architecture analysis over all domains (lint):
-``` SHELL
-go run ./cli/cmd/zord arch-analyse
-```
+| Command | Purpose |
+|---|---|
+| `zord new <path>` | Scaffold a new project from the embedded runtime |
+| `zord scaffold <group> <sub>` | AST-pure code generation, layer by layer (domain, field, repository, service, handler, route, …) |
+| `zord arch-analyse` | Run the architecture gate over the project in the current directory |
+| `zord migrate` | Apply the HCL schema to the database |
+| `zord inspect` | Inspect the database from the HCL description |
+| `zord generate-schema-from-db <schema> <database>` | Reverse an existing database into an HCL schema |
+| `zord mcp [--repo <path>]` | Run the MCP server (scaffold + gate as MCP tools) |
 
-Inspect the database from the HCL description:
-``` SHELL
-go run ./cli/cmd/zord inspect
-```
-
-Migrate the database from the HCL description:
-``` SHELL
-go run ./cli/cmd/zord migrate
-```
-
-Generate an HCL schema from an existing database:
-``` SHELL
-go run ./cli/cmd/zord generate-schema-from-db <schema name> <database name>
-```
+Run `zord <command> --help` for the exact flags. The scaffold groups and the gate
+rules are documented in the runtime README linked above.
 
 ---
 
-### Code generation (scaffold)
+## Repository layout
 
-Code generation is done by the `scaffold` binary — an **AST-pure**, layer-by-layer generator. It never templates whole files blindly; it edits the Go AST of the target layer so the output stays compilable and idempotent.
+This repo is the **ecosystem monorepo** — the CLI plus the runtime it emits — in a
+single Go module (`github.com/Open-Zord/zord`):
 
-``` SHELL
-go run ./cli/cmd/zord scaffold --help
+```
+cmd/zord/                 the `zord` CLI entrypoint
+internal/
+  commands/               one package per subcommand (new, scaffold, arch-analyse, migrate, mcp)
+  tools/                  the implementations behind the commands
+    archanalyser/         the architecture gate (+ embedded allow-lists)
+    scaffold/             the AST-pure generator
+    migrator/ · atlas/    schema migration (Atlas)
+    mcp/                  the MCP server
+  projectgen/             materializes the runtime into a new project
+  skeleton/
+    embed.go              //go:embed all:runtime — embeds the boilerplate
+    runtime/              the runtime boilerplate emitted by `zord new`
+docker/mcp/               Dockerfile for the MCP server
+skills/                   harness-agnostic agent skills
 ```
 
-The generator is organized in command groups, one per architectural layer:
-
-| Group | Subcommands | Purpose |
-|---|---|---|
-| `domain` | `create`, `delete` | Domain struct under `internal/application/domain/<name>/` |
-| `field` | `add`, `remove` | Granular fields on a domain struct |
-| `derive` | `schema` | (Re)generate or remove the domain's Atlas HCL block |
-| `repository` | `create`, `delete`, `port`, `unport`, `register`, `unregister` | sqlx repository adapter + Repository interface on the domain + DI wire-up in `bootstrap/http/repositories.go` |
-| `service` | `create`, `delete`, `register`, `unregister` | Use-case-per-folder service + DI wire-up in `bootstrap/http/services.go` |
-| `request` | `field`, `validator` | `request.go` Data struct fields and validation toggle of a use case |
-| `response` | `field` | `response.go` Response struct fields of a use case |
-| `handler` | `create`, `delete`, `register`, `unregister` | 1:1 HTTP handler for a service + DI wire-up in `bootstrap/http/handlers.go` |
-| `route` | `create`, `add`, `remove`, `delete`, `register`, `unregister` | HTTP route file per domain + registration in `cmd/http/routes/declarable.go` |
-| `projection` | `create`, `field` | Projection structs (return types for aggregate queries) |
-
-Use `go run ./cli/cmd/zord scaffold <group> --help` and `go run ./cli/cmd/zord scaffold <group> <subcommand> --help` to see the exact flags for each command.
-
-**Obs:** When generating code inside a docker container, fix file ownership afterwards with `sudo chown $USER:$USER -R .`.
+The `runtime/` subtree is **committed source compiled as part of this module**, so
+it is dogfooded in-place: `go build ./...`, `go test ./...` and your IDE all see
+it. Its module manifest is `go.mod.embed` (so `//go:embed` doesn't treat it as a
+nested module); `zord new` writes it out as `go.mod` and rewrites the module path.
 
 ---
 
-### Dependency injection (`bootstrap/`)
+## Developing Zord
 
-The `bootstrap/` directory is the single authorized wiring point of the project — `cmd`, `internal` and `pkg` never construct their dependencies elsewhere. It works as an index of entrypoints: each entrypoint has its own subpackage (`bootstrap/http/` today; `bootstrap/cli/`, `bootstrap/mcp/` etc. follow the same pattern when added).
-
-`http.Setup()` (in `bootstrap/http`) loads the configs and assembles the dependency graph into `pkg/registry` in **topological order**:
-
-```
-pkg → repositories → services → handlers
-```
-
-It returns the ready-to-use `*registry.Registry` and the API prefix. Each layer's `register*` function (`registerPkg`, `registerRepositories`, `registerServices`, `registerHandlers`) lives in its own file (`bootstrap/http/pkg.go`, `repositories.go`, `services.go`, `handlers.go`). Dependencies are looked up with the typed helper `registry.Resolve[T](reg, key)`.
-
-The scaffold `register`/`unregister` subcommands edit these `bootstrap/http/*.go` files automatically — you rarely touch them by hand.
-
----
-
-#### Run tests
-Run all tests:
-``` SHELL
-go test ./...
+```sh
+make build          # build the zord binary (runtime embedded)
+make test           # tooling + runtime tests (dogfood, compiled in-place)
+make vet
+make arch-analyse   # dogfood the gate: generate an ephemeral project and lint it
 ```
 
-Verify code coverage:
-``` SHELL
-// Generate coverage output
+**Why `make arch-analyse` generates a project** instead of running in-place: the
+embedded runtime's module path is `github.com/Open-Zord/zord/internal/skeleton/runtime`,
+which contains `/internal/` — that would poison the gate's segment-based isolation
+rules. A generated project has a clean module path, exactly like real usage.
+
+**Any new code is only accepted with all validations passing** — run the gate
+before opening a PR.
+
+### Run tests with coverage
+
+```sh
 go test ./... -coverprofile=coverage.out
-
-// Generate HTML file
 go tool cover -html=coverage.out
 ```
 
 ---
 
-### Development
+## MCP server
 
-Want to contribute? Great!
+`zord mcp` is the project's Model Context Protocol server. It exposes the scaffold
+generator and the architecture analyser as MCP tools over **stdio**, so an
+MCP-aware client (Cursor, Claude, etc.) can generate code and lint architecture
+directly. It provides the `scaffold_*` family (one per scaffold subcommand) plus
+`arch_analyze`. Full per-tool docs: [`internal/tools/mcp/README.md`](internal/tools/mcp/README.md).
 
-Make a change in your files and be careful with your updates.
-**Any new code is only accepted with all validations passing** — run `go run ./cli/cmd/zord arch-analyse` before opening a PR.
-
----
-
-### MCP Server
-
-`zord-mcp` is the project's Model Context Protocol server. It exposes the scaffold generator and the architecture analyser as MCP tools over **stdio** transport, so an MCP-aware client (Cursor, Claude, etc.) can generate code and lint architecture directly.
-
-It provides **32 tools**: the `scaffold_*` family (one per scaffold subcommand — domain, field, derive, repository, service, request/response field, handler, route, projection) plus `arch_analyze`. Full per-tool documentation lives in `tools/mcp/README.md`.
-
-#### Running the server
-
-``` SHELL
-go run ./cli/cmd/zord mcp --repo .
+```sh
+zord mcp --repo .
 ```
 
-`--repo` sets the target repository the tools operate on (defaults to the current working directory). Each individual tool call can also override the target via an optional `repo` argument.
-
-#### Configuring an MCP client
-
-The repository ships a ready-to-use client config at `zord-mcp.json`:
+`--repo` sets the target repository the tools operate on (defaults to the current
+directory); each tool call can override it with an optional `repo` argument. The
+repo ships a ready-to-use client config at [`zord-mcp.json`](zord-mcp.json):
 
 ```json
 {
   "mcpServers": {
     "zord-mcp": {
       "type": "stdio",
-      "command": "go",
-      "args": ["run", "./cli/cmd/zord", "mcp", "--repo", "."],
-      "env": {}
-    }
-  }
-}
-```
-
-Point your MCP client at this config (or copy the `mcpServers.zord-mcp` entry into your client's settings). If you prefer a prebuilt binary, build `zord` and run its `mcp` subcommand:
-
-``` SHELL
-go build -o zord ./cli/cmd/zord
-```
-
-```json
-{
-  "mcpServers": {
-    "zord-mcp": {
-      "type": "stdio",
-      "command": "/abs/path/to/zord",
+      "command": "zord",
       "args": ["mcp", "--repo", "/abs/path/to/your/repo"],
       "env": {}
     }
@@ -229,18 +167,30 @@ go build -o zord ./cli/cmd/zord
 }
 ```
 
-#### Smoke test
-
-A full end-to-end smoke test that drives the server through real tool calls (create a domain + service via MCP) lives at `tools/mcp/demo.sh`.
+(During development you can point `command` at `go` with `args` `["run", "./cmd/zord", "mcp", "--repo", "."]`.)
+A full end-to-end smoke test that drives the server through real tool calls lives
+at [`internal/tools/mcp/demo.sh`](internal/tools/mcp/demo.sh).
 
 ---
 
-### Agent Skills
+## Agent Skills
 
-`skills/` ships **harness-agnostic** agent skills — documented workflows any AI tool (Claude Code, Cursor, a custom agent) can discover and run, not just one vendor. Discovery is a single machine-readable index, `skills/manifest.json`; each skill is a `SKILL.md` written against an abstract capability vocabulary that each harness maps to its own primitives.
-
-The first skill is `task-init`: a multi-agent orchestrator that fans out one planning sub-agent per task — a dedicated worktree per task and a human review gate before any code is written.
+`skills/` ships **harness-agnostic** agent skills — documented workflows any AI
+tool (Claude Code, Cursor, a custom agent) can discover and run. Discovery is a
+single machine-readable index, `skills/manifest.json`; each skill is a `SKILL.md`
+written against an abstract capability vocabulary each harness maps to its own
+primitives.
 
 - Format, discovery and capability vocabulary: `skills/README.md`
-- Claude Code adapter (links skills into `.claude/skills/`): `skills/adapters/claude-code/install.sh`
+- Claude Code adapter: `skills/adapters/claude-code/install.sh`
 - Any other tool: `skills/adapters/generic.md`
+
+---
+
+## Roadmap
+
+Zord is evolving from a base repository into a CLI-driven ecosystem. Done: a
+single unified `zord` binary and `zord new`. Next: a package manager
+(`zord package add/update/remove`) for curated batteries (auth, cache,
+multi-tenant, …) as owned-code assets, `zord upgrade` with codemods, and
+pre-built release binaries.

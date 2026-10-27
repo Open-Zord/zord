@@ -9,9 +9,8 @@ RUN apk add --no-cache \
     bash \
     sudo
 
-# Copy module + workspace files (o mcp vive no módulo cli/, em modo workspace)
-COPY go.work go.mod go.sum ./
-COPY cli/go.mod cli/go.sum ./cli/
+# Copy module files (módulo único; o skeleton é fonte commitada, sem go generate)
+COPY go.mod go.sum ./
 
 # Download dependencies
 RUN go mod download
@@ -20,7 +19,7 @@ RUN go mod download
 COPY . .
 
 # Build the MCP server
-RUN go build -o /build/zord ./cli/cmd/zord
+RUN go build -o /build/zord ./cmd/zord
 
 # Final stage
 FROM golang:1.26-alpine
