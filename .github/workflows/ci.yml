@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: gofmt
+        run: |
+          out=$(gofmt -l .)
+          if [ -n "$out" ]; then
+            echo "Arquivos não formatados (rode gofmt -w):"
+            echo "$out"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test
+        run: go test ./...
+
+      # Dogfood do gate de arquitetura: gera um projeto efêmero a partir do
+      # runtime embarcado e roda o gate nele (module path limpo, como no uso
+      # real). Cobre embed + projectgen + go mod tidy + as 19 validações.
+      - name: architecture gate
+        run: make arch-analyse

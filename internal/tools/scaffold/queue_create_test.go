@@ -207,8 +207,8 @@ func TestQueueCreate_UnsupportedDriver(t *testing.T) {
 func TestQueueCreate_FailsIfBootstrapDirExists(t *testing.T) {
 	root := t.TempDir()
 	writeFileTree(t, root, map[string]string{
-		"go.mod":                     "module zord\n\ngo 1.22\n",
-		"bootstrap/worker/setup.go":  "package worker\n",
+		"go.mod":                    "module zord\n\ngo 1.22\n",
+		"bootstrap/worker/setup.go": "package worker\n",
 	})
 	_, err := QueueCreate(QueueCreateOptions{Root: root, Name: "worker"})
 	if err == nil {
@@ -222,7 +222,7 @@ func TestQueueCreate_FailsIfBootstrapDirExists(t *testing.T) {
 func TestQueueCreate_FailsIfCmdDirExists(t *testing.T) {
 	root := t.TempDir()
 	writeFileTree(t, root, map[string]string{
-		"go.mod":              "module zord\n\ngo 1.22\n",
+		"go.mod":               "module zord\n\ngo 1.22\n",
 		"cmd/worker/legacy.go": "package main\n",
 	})
 	_, err := QueueCreate(QueueCreateOptions{Root: root, Name: "worker"})

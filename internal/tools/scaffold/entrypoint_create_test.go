@@ -77,7 +77,7 @@ func TestEntrypointCreate_SnakeCaseName(t *testing.T) {
 func TestEntrypointCreate_FailsIfBootstrapDirExists(t *testing.T) {
 	root := t.TempDir()
 	writeFileTree(t, root, map[string]string{
-		"go.mod":                   "module zord\n\ngo 1.22\n",
+		"go.mod":                  "module zord\n\ngo 1.22\n",
 		"bootstrap/grpc/setup.go": "package grpc\n",
 	})
 	_, _, err := EntrypointCreate(EntrypointCreateOptions{Root: root, Name: "grpc"})
@@ -92,7 +92,7 @@ func TestEntrypointCreate_FailsIfBootstrapDirExists(t *testing.T) {
 func TestEntrypointCreate_FailsIfCmdDirExists(t *testing.T) {
 	root := t.TempDir()
 	writeFileTree(t, root, map[string]string{
-		"go.mod":              "module zord\n\ngo 1.22\n",
+		"go.mod":             "module zord\n\ngo 1.22\n",
 		"cmd/grpc/legacy.go": "package main\n",
 	})
 	_, _, err := EntrypointCreate(EntrypointCreateOptions{Root: root, Name: "grpc"})

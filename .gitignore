@@ -20,3 +20,6 @@ excalidraw.log
 /zord
 /zord-mcp
 /http
+
+# artefatos do GoReleaser
+/dist
