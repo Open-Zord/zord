@@ -105,12 +105,17 @@ func (lf *Lockfile) removeByName(name string) bool {
 	return false
 }
 
+// hashBytes returns the hex-encoded sha256 of data.
+func hashBytes(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
 // hashFile returns the hex-encoded sha256 of the file at path.
 func hashFile(path string) (string, error) {
 	data, err := os.ReadFile(path) //nolint:gosec // path derives from the repo root
 	if err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:]), nil
+	return hashBytes(data), nil
 }

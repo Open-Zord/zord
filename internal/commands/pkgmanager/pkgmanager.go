@@ -80,6 +80,63 @@ func Commands() []*cobra.Command {
 		},
 	}
 
-	root.AddCommand(add, remove, list)
+	update := &cobra.Command{
+		Use:   "update [<nome>]",
+		Short: "Re-sincroniza pacote(s) instalado(s) com o catálogo (respeita edições locais)",
+		Long: "Atualiza um pacote instalado (ou todos, sem argumento) para a versão do " +
+			"catálogo. Arquivos não editados são sobrescritos; arquivos que você editou " +
+			"ficam intactos e a versão nova vai para .zord/updates/<path>.new.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			var names []string
+			if len(args) == 1 {
+				names = []string{args[0]}
+			} else {
+				ns, err := pm.InstalledNames(repo)
+				if err != nil {
+					return err
+				}
+				names = ns
+			}
+			if len(names) == 0 {
+				fmt.Println("Nenhum pacote instalado.")
+				return nil
+			}
+			for _, n := range names {
+				res, err := pm.Update(repo, n)
+				if err != nil {
+					return err
+				}
+				printUpdate(res)
+			}
+			return nil
+		},
+	}
+
+	root.AddCommand(add, remove, list, update)
 	return []*cobra.Command{root}
+}
+
+// printUpdate resume o resultado de um update para o usuário.
+func printUpdate(res pm.UpdateResult) {
+	if !res.Changed() {
+		fmt.Printf("%s: já está atualizado.\n", res.Name)
+		return
+	}
+	fmt.Printf("%s:\n", res.Name)
+	for _, f := range res.Overwritten {
+		fmt.Printf("  ~ %s (atualizado)\n", f)
+	}
+	for _, f := range res.Added {
+		fmt.Printf("  + %s (adicionado)\n", f)
+	}
+	for _, f := range res.Removed {
+		fmt.Printf("  - %s (não existe mais no catálogo; mantido)\n", f)
+	}
+	for _, f := range res.Conflicts {
+		fmt.Printf("  ! %s (editado localmente — veja .zord/updates/%s.new)\n", f, f)
+	}
+	if len(res.Conflicts) > 0 {
+		fmt.Println("\nResolva os conflitos (.new) manualmente e rode `zord package update` de novo.")
+	}
 }
