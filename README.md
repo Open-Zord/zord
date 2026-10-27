@@ -42,11 +42,32 @@ documented in **[`internal/skeleton/runtime/README.md`](internal/skeleton/runtim
 go install github.com/Open-Zord/zord/cmd/zord@latest
 ```
 
+> ⚠️ The path ends in **`/cmd/zord`** — that's where the CLI's `main` package
+> lives. `go install github.com/Open-Zord/zord@latest` (the bare module path)
+> **fails** with *"module found … but does not contain package"*, because the
+> module root is a library + the embedded runtime, not a command.
+
+This installs the `zord` binary into `$(go env GOPATH)/bin`. Make sure that's on
+your `PATH`:
+
+```sh
+export PATH="$(go env GOPATH)/bin:$PATH"
+zord --help
+```
+
 Zord is a **single module** with no `replace` directives and no code-generation
-step, so `go install` works straight from source. Pre-built binaries for
-linux/darwin/windows (amd64/arm64) are published on each
-[GitHub Release](https://github.com/Open-Zord/zord/releases). You can also build
-it locally:
+step, so `go install` works straight from source.
+
+**No Go toolchain?** Download a pre-built binary for linux/darwin/windows
+(amd64/arm64) from any [GitHub Release](https://github.com/Open-Zord/zord/releases):
+
+```sh
+# example: linux/amd64
+curl -sSL https://github.com/Open-Zord/zord/releases/latest/download/zord_1.0.0_linux_amd64.tar.gz | tar -xz
+sudo mv zord /usr/local/bin/
+```
+
+Or build it locally from a clone:
 
 ```sh
 go build -o zord ./cmd/zord
