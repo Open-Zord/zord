@@ -42,3 +42,35 @@ jobs:
       # real). Cobre embed + projectgen + go mod tidy + as 19 validações.
       - name: architecture gate
         run: make arch-analyse
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Testes de integração do runtime embarcado (//go:build integration) contra
+      # um MySQL real. Eles criam o próprio schema e pulam sem ZORD_IT_DSN.
+      # -p 1: vários pacotes compartilham a tabela `dummys` no mesmo banco, então
+      # precisam rodar em série (senão o DROP/CREATE de um atropela o outro).
+      - name: integration tests
+        env:
+          ZORD_IT_DSN: root:root@tcp(127.0.0.1:3306)/test?parseTime=true
+        run: go test -tags integration -p 1 ./...
