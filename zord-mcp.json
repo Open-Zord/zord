@@ -3,7 +3,7 @@
     "zord-mcp": {
       "type": "stdio",
       "command": "go",
-      "args": ["run", "./cli/cmd/zord", "mcp", "--repo", "."],
+      "args": ["run", "./cmd/zord", "mcp", "--repo", "."],
       "env": {}
     }
   }

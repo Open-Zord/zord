@@ -1,0 +1,10 @@
+# .env (creds reais) fica local-only; os .env.<entrypoint> são versionados.
+.env
+.idea
+.vscode/
+.DS_Store
+storage
+tmp/*
+temp/
+coverage.out
+server

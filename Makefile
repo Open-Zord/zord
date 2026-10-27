@@ -1,9 +1,27 @@
-# Monorepo Zord — alvos de apoio.
+# Zord — módulo único github.com/Open-Zord/zord.
+# O runtime boilerplate vive versionado em internal/skeleton/runtime/ e é
+# embarcado direto no binário (sem passo de geração).
 
-.PHONY: embed-sync
+.PHONY: build test vet arch-analyse
 
-# embed-sync materializa o runtime embarcado (cli/internal/runtimefs/_runtime) a
-# partir da raiz. _runtime é gerado e gitignored, então rode isto após um clone
-# limpo (e antes de buildar o cli) ou sempre que o runtime da raiz mudar.
-embed-sync:
-	go generate -C cli ./internal/runtimefs
+# build compila o CLI `zord` (com o runtime embarcado).
+build:
+	go build -o zord ./cmd/zord
+
+# test roda toda a suíte: tooling + runtime (dogfood, compilado in-place).
+test:
+	go test ./...
+
+vet:
+	go vet ./...
+
+# arch-analyse dogfooda o gate: gera um projeto efêmero a partir do skeleton
+# embarcado e roda o gate nele. Não rodamos o gate direto no skeleton porque seu
+# module path (github.com/Open-Zord/zord/internal/skeleton/runtime) contém
+# `/internal/`, o que envenenaria as regras de isolamento baseadas nesse segmento;
+# num projeto gerado o module path é limpo, como no uso real.
+arch-analyse: build
+	@tmp=$$(mktemp -d); \
+	./zord new $$tmp/proj --module example.com/dogfood >/dev/null && \
+	( cd $$tmp/proj && "$(CURDIR)/zord" arch-analyse ); \
+	status=$$?; rm -rf $$tmp; exit $$status
