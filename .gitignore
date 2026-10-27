@@ -23,3 +23,7 @@ excalidraw.log
 /cli/zord
 /cli/mcp
 /cli/cli
+
+# runtime embarcado é GERADO (make embed-sync), não versionado: a arquitetura do
+# runtime vive só na raiz. Clone limpo precisa de `make embed-sync` antes de buildar o cli.
+cli/internal/runtimefs/_runtime/
