@@ -8,6 +8,7 @@ import (
 	"github.com/Open-Zord/zord/internal/commands/mcp"
 	"github.com/Open-Zord/zord/internal/commands/migrate"
 	"github.com/Open-Zord/zord/internal/commands/newproject"
+	"github.com/Open-Zord/zord/internal/commands/pkgmanager"
 	"github.com/Open-Zord/zord/internal/commands/scaffold"
 
 	"github.com/spf13/cobra"
@@ -19,6 +20,7 @@ var providers = []func() []*cobra.Command{
 	scaffold.Commands,
 	archanalyse.Commands,
 	migrate.Commands,
+	pkgmanager.Commands,
 	mcp.Commands,
 }
 

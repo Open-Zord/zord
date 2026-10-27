@@ -1,0 +1,8 @@
+# Manifesto do pacote (battery) do catálogo Zord. Lido por `zord package`.
+name = "cache"
+description = "In-memory key/value cache with per-entry TTL (dependency-free)"
+
+# Wiring: o pacote é copiado para pkg/<package>/ e registrado no registry via
+# reg.Provide(<package>.RegistryKey, <package>.<constructor>()).
+package = "cache"
+constructor = "NewCache"
