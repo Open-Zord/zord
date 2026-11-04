@@ -31,6 +31,7 @@ func (h *GetHandler) Handle(c echo.Context) error {
 	if err := c.Bind(&data); err != nil {
 		return httperr.RespondBadRequest(c, err.Error())
 	}
+	data.ID = c.Param("id")
 	req := get.NewRequest(&data)
 	out, err := h.svc.Execute(c.Request().Context(), req)
 	if err != nil {

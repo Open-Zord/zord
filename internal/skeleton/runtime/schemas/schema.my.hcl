@@ -38,6 +38,10 @@ table "dummys" {
     type = char(255)
     null = false
   }
+  column "deleted_at" {
+    type = datetime
+    null = true
+  }
   primary_key {
     columns = [column.id]
   }

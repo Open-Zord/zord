@@ -26,8 +26,8 @@ func registerServices(reg *registry.Registry) {
 	dummyRepo := registry.Resolve[dummy.Repository](reg, dummyrepo.RegistryKey)
 	uow := registry.Resolve[baserepo.UnitOfWork](reg, baserepository.UoWRegistryKey)
 	reg.Provide(create.RegistryKey, create.NewService(log, idC, dummyRepo, uow))
-	reg.Provide(get.RegistryKey, get.NewService(log, idC))
-	reg.Provide(list.RegistryKey, list.NewService(log, idC))
-	reg.Provide(edit.RegistryKey, edit.NewService(log, idC))
-	reg.Provide(delete.RegistryKey, delete.NewService(log, idC))
+	reg.Provide(get.RegistryKey, get.NewService(log, idC, dummyRepo))
+	reg.Provide(list.RegistryKey, list.NewService(log, idC, dummyRepo))
+	reg.Provide(edit.RegistryKey, edit.NewService(log, idC, dummyRepo, uow))
+	reg.Provide(delete.RegistryKey, delete.NewService(log, idC, dummyRepo, uow))
 }
