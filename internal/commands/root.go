@@ -10,6 +10,7 @@ import (
 	"github.com/Open-Zord/zord/internal/commands/newproject"
 	"github.com/Open-Zord/zord/internal/commands/pkgmanager"
 	"github.com/Open-Zord/zord/internal/commands/scaffold"
+	"github.com/Open-Zord/zord/internal/commands/upgrade"
 
 	"github.com/spf13/cobra"
 )
@@ -21,6 +22,7 @@ var providers = []func() []*cobra.Command{
 	archanalyse.Commands,
 	migrate.Commands,
 	pkgmanager.Commands,
+	upgrade.Commands,
 	mcp.Commands,
 }
 

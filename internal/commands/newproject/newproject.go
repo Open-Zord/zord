@@ -10,6 +10,7 @@ import (
 
 	"github.com/Open-Zord/zord/internal/projectgen"
 	"github.com/Open-Zord/zord/internal/skeleton"
+	"github.com/Open-Zord/zord/internal/tools/upgrader"
 
 	"github.com/spf13/cobra"
 )
@@ -23,7 +24,7 @@ func Commands() []*cobra.Command {
 		Use:   "new <caminho>",
 		Short: "Cria um projeto novo a partir do runtime boilerplate do Zord",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			dest := args[0]
 			if module == "" {
 				module = filepath.Base(filepath.Clean(dest))
@@ -40,6 +41,10 @@ func Commands() []*cobra.Command {
 			}
 			if err := projectgen.Generate(fsys, dest, module); err != nil {
 				return fmt.Errorf("gerando projeto: %w", err)
+			}
+			// Carimba a versão do CLI com que o projeto foi gerado, p/ o `zord upgrade`.
+			if err := upgrader.WriteVersion(dest, cmd.Root().Version); err != nil {
+				return fmt.Errorf("carimbando versão: %w", err)
 			}
 			if !noTidy {
 				if err := goModTidy(dest); err != nil {
